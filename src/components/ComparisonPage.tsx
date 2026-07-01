@@ -1,6 +1,7 @@
-﻿import { useMemo, useState } from 'react';
-import { BarChart3, CheckCircle2, Cloud, Cpu, Gauge, XCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { CheckCircle2, Cloud, Cpu, Equal, Trophy, XCircle } from 'lucide-react';
 import { evaluateSystem } from '../lib/calculator';
+import { MODEL_CATALOG } from '../lib/modelCatalog';
 import { HardwareProfile, UsageProfile } from '../lib/types';
 import { useLanguage } from '../lib/i18n';
 
@@ -9,108 +10,158 @@ interface Props {
   usage: UsageProfile;
 }
 
-type WorkloadKey = 'current' | 'startup' | 'coding' | 'agents' | 'production';
+type PlanKind = 'api' | 'hardware';
+type SortKey = 'name' | 'winner' | 'cost' | 'fit';
 
 interface ApiOption {
+  id: string;
+  kind: 'api';
   name: string;
-  tier: string;
+  detail: string;
   inputUsdPerMillion: number;
   outputUsdPerMillion: number;
-  context: string;
-  bestFor: string;
+  quality: number;
 }
 
 interface HardwareOption {
-  key: string;
-  label: string;
+  id: string;
+  kind: 'hardware';
+  name: string;
+  detail: string;
   profile: HardwareProfile;
-  note: string;
+}
+
+type PlanOption = ApiOption | HardwareOption;
+
+interface CompareScenario {
+  id: string;
+  name: string;
+  task: string;
+  modelName: string;
+  usagePatch: Partial<UsageProfile>;
+  inputTokensPerRequest: number;
+  outputTokensPerRequest: number;
+}
+
+interface PlanResult {
+  canRun: boolean;
+  monthlyUsd: number;
+  score: number;
+  label: string;
+  sublabel: string;
 }
 
 const API_OPTIONS: ApiOption[] = [
-  { name: 'OpenAI mini', tier: 'Balanced', inputUsdPerMillion: 0.15, outputUsdPerMillion: 0.6, context: '128K+', bestFor: 'Chat, apps, low-cost agents' },
-  { name: 'Gemini Flash', tier: 'Fast', inputUsdPerMillion: 0.3, outputUsdPerMillion: 2.5, context: '1M', bestFor: 'Long context and fast iteration' },
-  { name: 'Claude Sonnet', tier: 'Premium', inputUsdPerMillion: 3, outputUsdPerMillion: 15, context: '200K', bestFor: 'Coding, writing, complex reasoning' },
-  { name: 'OpenAI frontier', tier: 'Frontier', inputUsdPerMillion: 2, outputUsdPerMillion: 8, context: '128K+', bestFor: 'High quality product workflows' },
-  { name: 'DeepSeek chat', tier: 'Budget', inputUsdPerMillion: 0.27, outputUsdPerMillion: 1.1, context: '64K+', bestFor: 'Cost-sensitive automation' },
+  { id: 'openai-mini', kind: 'api', name: 'OpenAI mini', detail: 'balanced API', inputUsdPerMillion: 0.15, outputUsdPerMillion: 0.6, quality: 72 },
+  { id: 'gemini-flash', kind: 'api', name: 'Gemini Flash', detail: 'fast long context', inputUsdPerMillion: 0.3, outputUsdPerMillion: 2.5, quality: 76 },
+  { id: 'deepseek-chat', kind: 'api', name: 'DeepSeek chat', detail: 'budget API', inputUsdPerMillion: 0.27, outputUsdPerMillion: 1.1, quality: 70 },
+  { id: 'openai-frontier', kind: 'api', name: 'OpenAI frontier', detail: 'premium quality', inputUsdPerMillion: 2, outputUsdPerMillion: 8, quality: 88 },
+  { id: 'claude-sonnet', kind: 'api', name: 'Claude Sonnet', detail: 'coding and reasoning', inputUsdPerMillion: 3, outputUsdPerMillion: 15, quality: 90 },
 ];
 
 const HARDWARE_OPTIONS: HardwareOption[] = [
   {
-    key: 'rtx3060',
-    label: 'RTX 3060 12GB',
-    note: 'Good entry point for 7B/8B models.',
+    id: 'rtx3060',
+    kind: 'hardware',
+    name: 'RTX 3060 12GB',
+    detail: 'entry local GPU',
     profile: { preset: 'rtx3060', os: 'Windows', gpuMaker: 'NVIDIA', gpuName: 'RTX 3060', vramGB: 12, ramGB: 16, cpuName: '', devicePriceUsd: 850 },
   },
   {
-    key: 'rtx4070ti',
-    label: 'RTX 4070 Ti Super 16GB',
-    note: 'Comfortable local workstation for medium models.',
+    id: 'rtx4070ti',
+    kind: 'hardware',
+    name: 'RTX 4070 Ti Super',
+    detail: '16GB local workstation',
     profile: { preset: 'rtx4070tisuper', os: 'Windows', gpuMaker: 'NVIDIA', gpuName: 'RTX 4070 Ti Super', vramGB: 16, ramGB: 32, cpuName: '', devicePriceUsd: 1600 },
   },
   {
-    key: 'rtx4090',
-    label: 'RTX 4090 24GB',
-    note: 'Strong local option for heavier quantized models.',
+    id: 'rtx4090',
+    kind: 'hardware',
+    name: 'RTX 4090 24GB',
+    detail: 'high-end local GPU',
     profile: { preset: 'rtx4090', os: 'Windows', gpuMaker: 'NVIDIA', gpuName: 'RTX 4090', vramGB: 24, ramGB: 64, cpuName: '', devicePriceUsd: 3200 },
   },
   {
-    key: 'macm4',
-    label: 'Mac mini M4 16GB',
-    note: 'Efficient Apple Silicon baseline.',
+    id: 'macm4',
+    kind: 'hardware',
+    name: 'Mac mini M4',
+    detail: 'efficient Apple Silicon',
     profile: { preset: 'macmini_m4_16gb', os: 'macOS', gpuMaker: 'Apple', gpuName: 'M4', vramGB: 12, ramGB: 16, cpuName: '', devicePriceUsd: 799 },
   },
   {
-    key: 'm3max',
-    label: 'MacBook Pro M3 Max 64GB',
-    note: 'Portable high-memory local setup.',
+    id: 'm3max',
+    kind: 'hardware',
+    name: 'M3 Max 64GB',
+    detail: 'portable high-memory local',
     profile: { preset: 'm3max_64gb', os: 'macOS', gpuMaker: 'Apple', gpuName: 'M3 Max', vramGB: 48, ramGB: 64, cpuName: '', devicePriceUsd: 3999 },
   },
 ];
 
-function applyWorkload(base: UsageProfile, workload: WorkloadKey): UsageProfile {
-  if (workload === 'current') return base;
+const SCENARIOS: CompareScenario[] = [
+  {
+    id: 'chat-small',
+    name: 'Chat ligero',
+    task: 'Soporte, resumen, asistente diario',
+    modelName: 'Phi-3 Mini',
+    usagePatch: { goal: 'chat', frequency: 'daily', hoursPerDay: 2, modelSizePreference: 'small' },
+    inputTokensPerRequest: 700,
+    outputTokensPerRequest: 350,
+  },
+  {
+    id: 'chat-general',
+    name: 'Chat general 8B',
+    task: 'Uso diario con buen balance calidad/costo',
+    modelName: 'Llama 3 8B / Mistral 7B',
+    usagePatch: { goal: 'chat', frequency: 'daily', hoursPerDay: 4, modelSizePreference: 'medium' },
+    inputTokensPerRequest: 1000,
+    outputTokensPerRequest: 500,
+  },
+  {
+    id: 'coding',
+    name: 'Coding intenso',
+    task: 'Autocomplete, refactors y explicaciones',
+    modelName: 'Qwen 2.5 14B / DeepSeek Coder V2 Lite',
+    usagePatch: { goal: 'coding', frequency: 'heavy', hoursPerDay: 6, modelSizePreference: 'medium' },
+    inputTokensPerRequest: 2800,
+    outputTokensPerRequest: 1200,
+  },
+  {
+    id: 'rag',
+    name: 'RAG / documentos',
+    task: 'Consultas con contexto largo y retrieval',
+    modelName: 'Gemma 2 9B',
+    usagePatch: { goal: 'rag', frequency: 'heavy', hoursPerDay: 5, modelSizePreference: 'medium' },
+    inputTokensPerRequest: 4800,
+    outputTokensPerRequest: 900,
+  },
+  {
+    id: 'agents',
+    name: 'Agentes',
+    task: 'Automatizaciones multi-paso',
+    modelName: 'Qwen 2.5 14B / DeepSeek Coder V2 Lite',
+    usagePatch: { goal: 'agents', frequency: 'heavy', hoursPerDay: 8, modelSizePreference: 'large' },
+    inputTokensPerRequest: 4200,
+    outputTokensPerRequest: 1800,
+  },
+  {
+    id: 'large-model',
+    name: 'Modelo grande',
+    task: 'Razonamiento local pesado',
+    modelName: 'Llama 3.3 70B',
+    usagePatch: { goal: 'agents', frequency: 'production', hoursPerDay: 10, modelSizePreference: 'large' },
+    inputTokensPerRequest: 5200,
+    outputTokensPerRequest: 2200,
+  },
+];
 
-  const presets: Record<Exclude<WorkloadKey, 'current'>, Partial<UsageProfile>> = {
-    startup: { goal: 'chat', frequency: 'daily', hoursPerDay: 3, modelSizePreference: 'medium', needsPrivacy: false, offlineRequired: false },
-    coding: { goal: 'coding', frequency: 'heavy', hoursPerDay: 6, modelSizePreference: 'medium', needsPrivacy: false, offlineRequired: false },
-    agents: { goal: 'agents', frequency: 'heavy', hoursPerDay: 8, modelSizePreference: 'large', needsPrivacy: false, offlineRequired: false },
-    production: { goal: 'agents', frequency: 'production', hoursPerDay: 12, modelSizePreference: 'large', needsPrivacy: false, offlineRequired: false },
-  };
-
-  return { ...base, ...presets[workload] };
+function applyScenario(base: UsageProfile, scenario: CompareScenario): UsageProfile {
+  return { ...base, ...scenario.usagePatch, needsPrivacy: false, offlineRequired: false };
 }
 
-function estimateTokens(usage: UsageProfile) {
-  const activeDaysPerMonth: Record<UsageProfile['frequency'], number> = {
-    occasional: 8,
-    daily: 30,
-    heavy: 30,
-    production: 30,
-  };
-  const requestsPerHour: Record<UsageProfile['frequency'], number> = {
-    occasional: 2,
-    daily: 8,
-    heavy: 25,
-    production: 120,
-  };
-  const tokensPerRequest: Record<UsageProfile['goal'], { input: number; output: number }> = {
-    chat: { input: 800, output: 400 },
-    coding: { input: 2800, output: 1200 },
-    agents: { input: 4200, output: 1800 },
-    rag: { input: 4200, output: 800 },
-    vision: { input: 1800, output: 700 },
-    embedding: { input: 800, output: 0 },
-  };
-
-  const requests = usage.hoursPerDay * requestsPerHour[usage.frequency] * activeDaysPerMonth[usage.frequency];
-  const tokenShape = tokensPerRequest[usage.goal];
-
-  return {
-    requests,
-    inputTokens: requests * tokenShape.input,
-    outputTokens: requests * tokenShape.output,
-  };
+function requestsPerMonth(usage: UsageProfile) {
+  const days: Record<UsageProfile['frequency'], number> = { occasional: 8, daily: 30, heavy: 30, production: 30 };
+  const perHour: Record<UsageProfile['frequency'], number> = { occasional: 2, daily: 8, heavy: 25, production: 120 };
+  return usage.hoursPerDay * days[usage.frequency] * perHour[usage.frequency];
 }
 
 function formatMoney(usd: number, usage: UsageProfile, digits = 0) {
@@ -119,192 +170,204 @@ function formatMoney(usd: number, usage: UsageProfile, digits = 0) {
   return `${usage.currencySymbol}${value.toLocaleString(undefined, { maximumFractionDigits: digits })}${suffix}`;
 }
 
-function apiMonthlyCost(api: ApiOption, tokens: ReturnType<typeof estimateTokens>) {
-  return (tokens.inputTokens / 1000000) * api.inputUsdPerMillion + (tokens.outputTokens / 1000000) * api.outputUsdPerMillion;
+function planIcon(kind: PlanKind) {
+  return kind === 'api' ? <Cloud className="h-4 w-4" /> : <Cpu className="h-4 w-4" />;
+}
+
+function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: UsageProfile, t: (key: string) => string): PlanResult {
+  const scenarioUsage = applyScenario(baseUsage, scenario);
+  const requests = requestsPerMonth(scenarioUsage);
+
+  if (plan.kind === 'api') {
+    const monthlyUsd = ((requests * scenario.inputTokensPerRequest) / 1000000) * plan.inputUsdPerMillion
+      + ((requests * scenario.outputTokensPerRequest) / 1000000) * plan.outputUsdPerMillion;
+
+    return {
+      canRun: true,
+      monthlyUsd,
+      score: plan.quality - monthlyUsd * 0.2,
+      label: formatMoney(monthlyUsd, scenarioUsage, 2),
+      sublabel: `$${plan.inputUsdPerMillion}/$${plan.outputUsdPerMillion} per 1M`,
+    };
+  }
+
+  const diagnosis = evaluateSystem(plan.profile, scenarioUsage, t);
+  const model = diagnosis.recommendedModels.find((entry) => entry.name === scenario.modelName)
+    ?? diagnosis.recommendedModels.find((entry) => entry.canRun)
+    ?? diagnosis.recommendedModels[0];
+  const speedScore = model?.speed === 'fast' ? 92 : model?.speed === 'acceptable' ? 72 : model?.canRun ? 55 : 0;
+
+  return {
+    canRun: Boolean(model?.canRun),
+    monthlyUsd: diagnosis.economics.totalLocalMonthly,
+    score: speedScore - diagnosis.economics.totalLocalMonthly * 0.2,
+    label: model?.canRun ? formatMoney(diagnosis.economics.totalLocalMonthly, scenarioUsage, 2) : 'No corre',
+    sublabel: model?.canRun ? `${model.speed} · ${plan.profile.vramGB}GB VRAM` : `${plan.profile.vramGB}GB VRAM / ${plan.profile.ramGB}GB RAM`,
+  };
+}
+
+function winnerFor(a: PlanResult, b: PlanResult): 'a' | 'b' | 'tie' {
+  if (a.canRun && !b.canRun) return 'a';
+  if (!a.canRun && b.canRun) return 'b';
+  if (!a.canRun && !b.canRun) return 'tie';
+  if (Math.abs(a.score - b.score) < 3) return 'tie';
+  return a.score > b.score ? 'a' : 'b';
+}
+
+function resultBadge(result: PlanResult) {
+  if (!result.canRun) {
+    return <span className="inline-flex items-center gap-1 rounded-full border border-[#f3a6a6]/40 bg-[#f3a6a6]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#f3a6a6]"><XCircle className="h-3 w-3" />No corre</span>;
+  }
+
+  return <span className="inline-flex items-center gap-1 rounded-full border border-[#7dd3fc]/40 bg-[#7dd3fc]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7dd3fc]"><CheckCircle2 className="h-3 w-3" />OK</span>;
 }
 
 export function ComparisonPage({ hardware, usage }: Props) {
   const { t } = useLanguage();
-  const [workload, setWorkload] = useState<WorkloadKey>('current');
-  const scenario = useMemo(() => applyWorkload(usage, workload), [usage, workload]);
-  const tokens = useMemo(() => estimateTokens(scenario), [scenario]);
+  const currentHardware: HardwareOption = {
+    id: 'current',
+    kind: 'hardware',
+    name: `Tu equipo (${hardware.gpuName})`,
+    detail: `${hardware.vramGB}GB VRAM / ${hardware.ramGB}GB RAM`,
+    profile: hardware,
+  };
+  const planOptions = useMemo<PlanOption[]>(() => [currentHardware, ...HARDWARE_OPTIONS, ...API_OPTIONS], [hardware]);
+  const [planAId, setPlanAId] = useState('current');
+  const [planBId, setPlanBId] = useState('openai-mini');
+  const [sortKey, setSortKey] = useState<SortKey>('winner');
 
-  const apiRows = useMemo(() => API_OPTIONS
-    .map((api) => ({ ...api, monthlyUsd: apiMonthlyCost(api, tokens) }))
-    .sort((a, b) => a.monthlyUsd - b.monthlyUsd), [tokens]);
+  const planA = planOptions.find((plan) => plan.id === planAId) ?? planOptions[0];
+  const planB = planOptions.find((plan) => plan.id === planBId) ?? planOptions[1];
 
-  const hardwareRows = useMemo(() => {
-    const current: HardwareOption = { key: 'current', label: `Your hardware (${hardware.gpuName})`, note: 'Detected or selected on the dashboard.', profile: hardware };
-    return [current, ...HARDWARE_OPTIONS].map((option) => {
-      const diagnosis = evaluateSystem(option.profile, scenario, t);
-      const fastestModel = diagnosis.recommendedModels.find((model) => model.canRun && model.speed !== 'unusable');
-      return {
-        ...option,
-        monthlyUsd: diagnosis.economics.totalLocalMonthly,
-        breakevenMonths: diagnosis.economics.breakevenMonths,
-        canRun: diagnosis.canRunLocal,
-        modelLabel: fastestModel?.name ?? 'Limited',
-        verdict: diagnosis.economics.verdict,
-      };
-    }).sort((a, b) => a.monthlyUsd - b.monthlyUsd);
-  }, [hardware, scenario, t]);
+  const rows = useMemo(() => {
+    const scored = SCENARIOS.map((scenario) => {
+      const resultA = evaluatePlan(planA, scenario, usage, t);
+      const resultB = evaluatePlan(planB, scenario, usage, t);
+      const winner = winnerFor(resultA, resultB);
+      const catalogModel = MODEL_CATALOG.find((model) => model.name === scenario.modelName);
+      return { scenario, resultA, resultB, winner, params: catalogModel?.parameters ?? '' };
+    });
 
-  const cheapestApi = apiRows[0];
-  const bestHardware = hardwareRows.find((row) => row.canRun) ?? hardwareRows[0];
-  const monthlyDelta = cheapestApi.monthlyUsd - bestHardware.monthlyUsd;
+    return scored.sort((left, right) => {
+      if (sortKey === 'name') return left.scenario.name.localeCompare(right.scenario.name);
+      if (sortKey === 'cost') return Math.min(left.resultA.monthlyUsd, left.resultB.monthlyUsd) - Math.min(right.resultA.monthlyUsd, right.resultB.monthlyUsd);
+      if (sortKey === 'fit') return Math.max(right.resultA.score, right.resultB.score) - Math.max(left.resultA.score, left.resultB.score);
+      const order = { a: 0, tie: 1, b: 2 };
+      return order[left.winner] - order[right.winner];
+    });
+  }, [planA, planB, usage, t, sortKey]);
+
+  const counts = rows.reduce((acc, row) => ({
+    a: acc.a + (row.winner === 'a' ? 1 : 0),
+    b: acc.b + (row.winner === 'b' ? 1 : 0),
+    tie: acc.tie + (row.winner === 'tie' ? 1 : 0),
+  }), { a: 0, b: 0, tie: 0 });
 
   return (
     <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <section className="panel-card flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-4xl">
-          <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#8ba7c7]">API vs hardware matrix</p>
-          <h2 className="font-mono text-4xl font-medium tracking-normal text-[#dbeafe] md:text-5xl">Comparador</h2>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-[#8ba7c7]">
-            Compara varias APIs contra varios equipos locales usando el mismo perfil de uso, moneda, electricidad y criterio de compatibilidad del dashboard.
-          </p>
-        </div>
-        <div className="w-full max-w-sm">
-          <label className="micro-label mb-2">Escenario</label>
-          <select className="control-field" value={workload} onChange={(event) => setWorkload(event.target.value as WorkloadKey)}>
-            <option value="current">Perfil actual</option>
-            <option value="startup">Startup / app pequena</option>
-            <option value="coding">Coding intenso</option>
-            <option value="agents">Agentes y RAG</option>
-            <option value="production">Produccion</option>
-          </select>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="panel-card-muted">
-          <div className="mb-6 flex items-center justify-between">
-            <Cloud className="h-6 w-6" />
-            <span className="rounded-full border border-[#06111f]/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em]">API barata</span>
-          </div>
-          <p className="text-sm text-[#405a78]">{cheapestApi.name}</p>
-          <p className="mt-2 font-mono text-4xl">{formatMoney(cheapestApi.monthlyUsd, scenario, 2)}</p>
-          <p className="mt-3 text-xs leading-5 text-[#405a78]">Costo mensual estimado con {Math.round(tokens.requests).toLocaleString()} requests.</p>
-        </div>
-        <div className="panel-card">
-          <div className="mb-6 flex items-center justify-between">
-            <Cpu className="h-6 w-6 text-[#7dd3fc]" />
-            <span className="rounded-full border border-[#7dd3fc]/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#7dd3fc]">Hardware viable</span>
-          </div>
-          <p className="text-sm text-[#8ba7c7]">{bestHardware.label}</p>
-          <p className="mt-2 font-mono text-4xl text-[#dbeafe]">{formatMoney(bestHardware.monthlyUsd, scenario, 2)}</p>
-          <p className="mt-3 text-xs leading-5 text-[#8ba7c7]">Modelo objetivo: {bestHardware.modelLabel}</p>
-        </div>
-        <div className="panel-card">
-          <div className="mb-6 flex items-center justify-between">
-            <BarChart3 className="h-6 w-6 text-[#7dd3fc]" />
-            <span className="rounded-full border border-[#7dd3fc]/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#7dd3fc]">Diferencia</span>
-          </div>
-          <p className="text-sm text-[#8ba7c7]">{monthlyDelta >= 0 ? 'Ahorro local mensual' : 'API sigue abajo'}</p>
-          <p className="mt-2 font-mono text-4xl text-[#dbeafe]">{formatMoney(Math.abs(monthlyDelta), scenario, 2)}</p>
-          <p className="mt-3 text-xs leading-5 text-[#8ba7c7]">Antes de mantenimiento, setup y diferencias de calidad de modelos.</p>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <div className="panel-card overflow-hidden">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">APIs</h3>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-[#8ba7c7]">Input + output</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-xs">
-              <thead className="border-b border-[#7dd3fc]/10 text-[#8ba7c7]">
-                <tr>
-                  <th className="pb-3 pr-4 font-medium">Proveedor</th>
-                  <th className="pb-3 pr-4 font-medium">Costo mensual</th>
-                  <th className="pb-3 pr-4 font-medium">Tarifa</th>
-                  <th className="pb-3 font-medium">Mejor para</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#7dd3fc]/10">
-                {apiRows.map((api) => (
-                  <tr key={api.name} className="transition hover:bg-[#7dd3fc]/5">
-                    <td className="py-4 pr-4 align-top">
-                      <div className="font-medium text-[#eaf4ff]">{api.name}</div>
-                      <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#7dd3fc]">{api.tier} / {api.context}</div>
-                    </td>
-                    <td className="py-4 pr-4 align-top font-mono text-lg text-[#dbeafe]">{formatMoney(api.monthlyUsd, scenario, 2)}</td>
-                    <td className="py-4 pr-4 align-top text-[#8ba7c7]">${api.inputUsdPerMillion}/$${api.outputUsdPerMillion} per 1M</td>
-                    <td className="py-4 align-top text-[#b7cbe2]">{api.bestFor}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="panel-card overflow-hidden">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">Hardwares</h3>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-[#8ba7c7]">24 month amortization</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-xs">
-              <thead className="border-b border-[#7dd3fc]/10 text-[#8ba7c7]">
-                <tr>
-                  <th className="pb-3 pr-4 font-medium">Equipo</th>
-                  <th className="pb-3 pr-4 font-medium">Costo local</th>
-                  <th className="pb-3 pr-4 font-medium">Compatibilidad</th>
-                  <th className="pb-3 pr-4 font-medium">Break-even</th>
-                  <th className="pb-3 font-medium">Nota</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#7dd3fc]/10">
-                {hardwareRows.map((row) => {
-                  const monthsVsCheapest = cheapestApi.monthlyUsd > 0
-                    ? row.profile.devicePriceUsd / Math.max(cheapestApi.monthlyUsd - (row.monthlyUsd - row.profile.devicePriceUsd / 24), 0.01)
-                    : -1;
-                  return (
-                    <tr key={row.key} className="transition hover:bg-[#7dd3fc]/5">
-                      <td className="py-4 pr-4 align-top">
-                        <div className="font-medium text-[#eaf4ff]">{row.label}</div>
-                        <div className="mt-1 text-[10px] text-[#8ba7c7]">{row.profile.vramGB}GB VRAM / {row.profile.ramGB}GB RAM</div>
-                      </td>
-                      <td className="py-4 pr-4 align-top font-mono text-lg text-[#dbeafe]">{formatMoney(row.monthlyUsd, scenario, 2)}</td>
-                      <td className="py-4 pr-4 align-top">
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${row.canRun ? 'border-[#7dd3fc]/40 bg-[#7dd3fc]/10 text-[#7dd3fc]' : 'border-[#f3a6a6]/40 bg-[#f3a6a6]/10 text-[#f3a6a6]'}`}>
-                          {row.canRun ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                          {row.canRun ? row.modelLabel : 'Limitado'}
-                        </span>
-                      </td>
-                      <td className="py-4 pr-4 align-top text-[#b7cbe2]">{monthsVsCheapest > 0 && monthsVsCheapest < 120 ? `${Math.ceil(monthsVsCheapest)} meses` : 'No claro'}</td>
-                      <td className="py-4 align-top text-[#8ba7c7]">{row.note}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
       <section className="panel-card">
-        <div className="mb-5 flex items-center gap-3">
-          <Gauge className="h-5 w-5 text-[#7dd3fc]" />
-          <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">Matriz rapida</h3>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {hardwareRows.filter((row) => row.canRun).slice(0, 6).map((row) => (
-            <div key={row.key} className="rounded-[14px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-4">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <h4 className="font-mono text-lg text-[#dbeafe]">{row.label}</h4>
-                  <p className="mt-1 text-xs text-[#8ba7c7]">vs {cheapestApi.name}</p>
-                </div>
-                <span className="rounded-full border border-[#7dd3fc]/30 px-2 py-1 text-[10px] text-[#7dd3fc]">{row.verdict}</span>
-              </div>
-              <p className="text-sm leading-6 text-[#b7cbe2]">
-                {row.monthlyUsd < cheapestApi.monthlyUsd
-                  ? `Local ahorra aprox. ${formatMoney(cheapestApi.monthlyUsd - row.monthlyUsd, scenario, 2)} al mes.`
-                  : `API cuesta aprox. ${formatMoney(row.monthlyUsd - cheapestApi.monthlyUsd, scenario, 2)} menos al mes.`}
-              </p>
+        <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#8ba7c7]">A/B comparison</p>
+        <h2 className="font-mono text-4xl font-medium tracking-normal text-[#dbeafe] md:text-5xl">Compare planes</h2>
+        <p className="mt-4 max-w-3xl text-sm leading-6 text-[#8ba7c7]">
+          Elige dos opciones, API o hardware, y revisa cual gana en cada escenario. La logica combina costo mensual, compatibilidad local y calidad esperada.
+        </p>
+      </section>
+
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)]">
+        <div className="panel-card">
+          <label className="micro-label mb-2">Plan A</label>
+          <select className="control-field" value={planAId} onChange={(event) => setPlanAId(event.target.value)}>
+            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{plan.kind === 'api' ? 'API' : 'HW'} · {plan.name}</option>)}
+          </select>
+          <div className="mt-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-mono text-2xl text-[#dbeafe]">{planA.name}</p>
+              <p className="mt-1 text-xs text-[#8ba7c7]">{planA.detail}</p>
             </div>
-          ))}
+            <span className="rounded-full border border-[#7dd3fc]/40 p-2 text-[#7dd3fc]">{planIcon(planA.kind)}</span>
+          </div>
+        </div>
+
+        <div className="panel-card-muted flex flex-col items-center justify-center gap-3 text-center">
+          <Trophy className="h-7 w-7" />
+          <div className="grid grid-cols-3 gap-3 text-xs">
+            <div><span className="block font-mono text-2xl">{counts.a}</span>A gana</div>
+            <div><span className="block font-mono text-2xl">{counts.tie}</span>Empate</div>
+            <div><span className="block font-mono text-2xl">{counts.b}</span>B gana</div>
+          </div>
+        </div>
+
+        <div className="panel-card">
+          <label className="micro-label mb-2">Plan B</label>
+          <select className="control-field" value={planBId} onChange={(event) => setPlanBId(event.target.value)}>
+            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{plan.kind === 'api' ? 'API' : 'HW'} · {plan.name}</option>)}
+          </select>
+          <div className="mt-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-mono text-2xl text-[#dbeafe]">{planB.name}</p>
+              <p className="mt-1 text-xs text-[#8ba7c7]">{planB.detail}</p>
+            </div>
+            <span className="rounded-full border border-[#7dd3fc]/40 p-2 text-[#7dd3fc]">{planIcon(planB.kind)}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel-card overflow-hidden">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">Escenarios comparados</h3>
+            <p className="mt-2 text-sm text-[#8ba7c7]">Como en CanIRun, cada fila compara el mismo objetivo contra dos opciones.</p>
+          </div>
+          <div className="w-full md:w-56">
+            <label className="micro-label mb-2">Sort by</label>
+            <select className="control-field" value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)}>
+              <option value="winner">Winner</option>
+              <option value="name">Name A-Z</option>
+              <option value="cost">Lowest cost</option>
+              <option value="fit">Best fit</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] text-left text-xs">
+            <thead className="border-b border-[#7dd3fc]/10 text-[#8ba7c7]">
+              <tr>
+                <th className="pb-3 pr-4 font-medium">Escenario</th>
+                <th className="pb-3 pr-4 font-medium">Plan A</th>
+                <th className="pb-3 pr-4 font-medium">Plan B</th>
+                <th className="pb-3 font-medium">Resultado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#7dd3fc]/10">
+              {rows.map((row) => (
+                <tr key={row.scenario.id} className="transition hover:bg-[#7dd3fc]/5">
+                  <td className="py-4 pr-4 align-top">
+                    <div className="font-medium text-[#eaf4ff]">{row.scenario.name}</div>
+                    <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#7dd3fc]">{row.scenario.modelName} {row.params && `· ${row.params}`}</div>
+                    <div className="mt-2 max-w-[260px] text-[11px] leading-5 text-[#8ba7c7]">{row.scenario.task}</div>
+                  </td>
+                  <td className="py-4 pr-4 align-top">
+                    <div className="mb-2">{resultBadge(row.resultA)}</div>
+                    <div className="font-mono text-lg text-[#dbeafe]">{row.resultA.label}</div>
+                    <div className="mt-1 text-[11px] text-[#8ba7c7]">{row.resultA.sublabel}</div>
+                  </td>
+                  <td className="py-4 pr-4 align-top">
+                    <div className="mb-2">{resultBadge(row.resultB)}</div>
+                    <div className="font-mono text-lg text-[#dbeafe]">{row.resultB.label}</div>
+                    <div className="mt-1 text-[11px] text-[#8ba7c7]">{row.resultB.sublabel}</div>
+                  </td>
+                  <td className="py-4 align-top">
+                    {row.winner === 'tie' ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#f0d48a]/40 bg-[#f0d48a]/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#f0d48a]"><Equal className="h-3 w-3" />Tie</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#7dd3fc]/40 bg-[#7dd3fc]/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7dd3fc]">{row.winner === 'a' ? 'A wins' : 'B wins'}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>
