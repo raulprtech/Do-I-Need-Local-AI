@@ -80,30 +80,6 @@ export default function App() {
     localStorage.setItem('usage_v2', JSON.stringify(usage));
   }, [hardware, usage]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('s')) return; // Do not fetch country if loaded from share link
-    if (localStorage.getItem('usage_v2')) return; // Don't override saved settings
-
-    // Attempt to detect country to set a realistic electricity cost (USD)
-    fetch('https://get.geojs.io/v1/ip/country.json')
-      .then(res => res.json())
-      .then(data => {
-        const countryCode = data.country;
-        const costs: Record<string, number> = {
-          'US': 0.16, 'GB': 0.40, 'DE': 0.40, 'FR': 0.28, 'ES': 0.25, 'IT': 0.35,
-          'MX': 0.08, 'AR': 0.05, 'CO': 0.15, 'CL': 0.18, 'PE': 0.18, 'BR': 0.17,
-          'UY': 0.22, 'CR': 0.15, 'DO': 0.20, 'PA': 0.18, 'SV': 0.18, 'EC': 0.10,
-        };
-        if (countryCode && costs[countryCode]) {
-          setUsage(prev => ({ ...prev, electricityCostPerKwh: costs[countryCode] }));
-        }
-      })
-      .catch(() => {
-        // Silently fail and keep default 0.20
-      });
-  }, []);
-
   const diagnosis = useMemo(() => evaluateSystem(hardware, usage, t), [hardware, usage, t]);
 
   const handleShare = () => {
@@ -116,37 +92,38 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col font-sans">
-      <Header onShare={handleShare} shared={shared} />
-      
-      <main className="flex-1 w-full p-6 flex flex-col gap-6 max-w-[1200px] mx-auto">
-        <div className="mb-2 max-w-2xl">
-          <h2 className="text-2xl font-bold text-white tracking-tight mb-2">
-            {t('app.title')}
-          </h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            {t('app.subtitle')}
-          </p>
-        </div>
-        
-        <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
-          {/* Sidebar Area */}
-          <div className="w-full lg:w-80 shrink-0">
-            <InputForms 
-              hardware={hardware} 
-              setHardware={setHardware} 
-              usage={usage} 
-              setUsage={setUsage} 
-            />
+    <div className="min-h-screen px-4 py-6 md:px-8 md:py-10 font-sans">
+      <div className="dashboard-shell mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-[1440px] flex-col overflow-hidden rounded-[28px]">
+        <Header onShare={handleShare} shared={shared} />
+
+        <main className="flex-1 w-full px-5 pb-6 pt-5 md:px-10 md:pb-10 md:pt-8">
+          <div className="mb-8 flex flex-col gap-4 border-b border-[#dfeadd]/10 pb-7 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-3xl">
+              <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#aab6a8]">Local AI readiness</p>
+              <h2 className="font-mono text-4xl font-medium tracking-normal text-[#f3f8ef] md:text-5xl">
+                {t('app.title')}
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-[#aab6a8]">
+                {t('app.subtitle')}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 text-right font-mono text-[#f3f8ef]">
+              <span className="text-3xl md:text-4xl">12</span>
+              <span className="text-sm text-[#aab6a8]">month<br />projection</span>
+            </div>
           </div>
-          
-          {/* Main Results Area */}
-          <div className="flex-1 min-w-0">
+
+          <div className="grid w-full grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+            <InputForms
+              hardware={hardware}
+              setHardware={setHardware}
+              usage={usage}
+              setUsage={setUsage}
+            />
             <ResultsDashboard diagnosis={diagnosis} />
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
-

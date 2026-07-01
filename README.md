@@ -78,3 +78,6 @@ El núcleo de la aplicación reside en el archivo `calculator.ts`, el cual ejecu
    ```bash
    npm run build
    ```
+## Inspiracion visual
+
+El rediseño visual del dashboard toma inspiracion de [Smart Energy Dashboard Concept](https://dribbble.com/shots/25108413-Smart-Energy-Dashboard-Concept), un concepto de Bohdan Ratiiev para Zajno publicado en Dribbble.

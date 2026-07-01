@@ -10,37 +10,39 @@ export default function Header({ onShare, shared }: Props) {
   const { t, lang, setLang } = useLanguage();
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
-      <div className="max-w-[1200px] w-full mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-            <Cpu className="w-5 h-5 text-slate-950" />
+    <header className="px-5 py-5 md:px-10 md:py-7">
+      <div className="flex items-center justify-between border-b border-[#dfeadd]/10 pb-7">
+        <div className="flex items-center gap-8">
+          <div className="relative flex h-10 w-12 items-center justify-center rounded-[14px] border border-[#dfeadd]/80">
+            <Cpu className="h-5 w-5 text-[#edf4eb]" />
+            <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-[#dfeadd]" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-white">
-            Do I Need Local <span className="text-emerald-500">AI</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-6">
-          <nav className="flex items-center gap-4 text-sm font-medium text-slate-400">
-            <button 
-              onClick={() => setLang(lang === 'es' ? 'en' : 'es')}
-              className="hover:text-white transition-colors flex items-center gap-1 uppercase"
-            >
-              <Globe className="w-4 h-4" />
-              <span className="hidden sm:inline">{lang === 'es' ? 'EN' : 'ES'}</span>
-            </button>
-            <a href="#" className="hover:text-white transition-colors flex items-center gap-1">
-              <HelpCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('header.howItWorks')}</span>
-            </a>
+          <nav className="hidden items-center gap-8 text-sm font-medium text-[#edf4eb] md:flex">
+            <a href="#" className="transition hover:text-[#dfeadd]">Dashboard</a>
+            <a href="#" className="transition hover:text-[#dfeadd]">Hardware</a>
+            <a href="#" className="transition hover:text-[#dfeadd]">Usage</a>
+            <a href="#" className="transition hover:text-[#dfeadd]">{t('header.howItWorks')}</a>
           </nav>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setLang(lang === 'es' ? 'en' : 'es')}
+            className="pill-button flex items-center gap-2"
+          >
+            <Globe className="h-4 w-4" />
+            <span>{lang === 'es' ? 'EN' : 'ES'}</span>
+          </button>
+          <a href="#" className="hidden rounded-full p-2 text-[#edf4eb] transition hover:bg-[#dfeadd]/10 sm:block" title={t('header.howItWorks')}>
+            <HelpCircle className="h-5 w-5" />
+          </a>
           {onShare && (
             <button
               onClick={onShare}
               title={shared ? t('header.copied') : t('header.share')}
-              className="bg-slate-800 p-2 rounded-md border border-slate-700 hover:bg-slate-700 text-white flex items-center justify-center transition-colors"
+              className="rounded-full bg-[#dfeadd] p-2.5 text-[#111411] transition hover:bg-white"
             >
-              {shared ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+              {shared ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
             </button>
           )}
         </div>

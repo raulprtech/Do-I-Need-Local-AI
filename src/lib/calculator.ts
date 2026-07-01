@@ -1,4 +1,4 @@
-import { HardwareProfile, UsageProfile, Diagnosis, ModelCapability, EconomicAnalysis } from './types';
+import { HardwareProfile, UsageProfile, Diagnosis, ModelCapability, EconomicAnalysis, SoftwareRecommendation } from './types';
 
 export const HARDWARE_PRESETS: Record<string, Partial<HardwareProfile>> = {
   'custom': { preset: 'custom' },
@@ -11,23 +11,38 @@ export const HARDWARE_PRESETS: Record<string, Partial<HardwareProfile>> = {
 };
 
 function estimateApiCostMonthly(usage: UsageProfile): number {
-  // Rough estimations
-  // A typical prompt + response = 2k tokens. 
-  // Medium usage = 100 requests/day = 200k tokens/day = 6M tokens/month.
-  // Pricing: approx $0.50 per 1M tokens (average of input/output for cheap models)
-  // Large models (GPT-4 class) = $10 per 1M tokens.
+  const activeDaysPerMonth: Record<UsageProfile['frequency'], number> = {
+    occasional: 8,
+    daily: 30,
+    heavy: 30,
+    production: 30,
+  };
+  const requestsPerHour: Record<UsageProfile['frequency'], number> = {
+    occasional: 2,
+    daily: 8,
+    heavy: 25,
+    production: 120,
+  };
+  const tokensPerRequest: Record<UsageProfile['goal'], number> = {
+    chat: 1200,
+    coding: 4000,
+    agents: 6000,
+    rag: 5000,
+    vision: 2500,
+    embedding: 800,
+  };
+  const ratePerMillion: Record<UsageProfile['modelSizePreference'], number> = {
+    small: 0.25,
+    medium: 0.75,
+    large: 10,
+    any: 1.5,
+  };
 
-  let requestsPerDay = 10;
-  if (usage.frequency === 'daily') requestsPerDay = 50;
-  if (usage.frequency === 'heavy') requestsPerDay = 200;
-  if (usage.frequency === 'production') requestsPerDay = 2000;
-
-  const tokensPerRequest = usage.goal === 'coding' || usage.goal === 'rag' ? 4000 : 1000;
-  const tokensPerMonth = requestsPerDay * tokensPerRequest * 30;
-
-  const ratePerMillion = usage.modelSizePreference === 'large' ? 10 : 0.5;
+  const requestsPerMonth =
+    usage.hoursPerDay * requestsPerHour[usage.frequency] * activeDaysPerMonth[usage.frequency];
+  const tokensPerMonth = requestsPerMonth * tokensPerRequest[usage.goal];
   
-  return (tokensPerMonth / 1000000) * ratePerMillion;
+  return (tokensPerMonth / 1000000) * ratePerMillion[usage.modelSizePreference];
 }
 
 export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t: (key: string) => string): Diagnosis {
@@ -101,7 +116,7 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
   });
 
   // Software Recommendations
-  const softwareRecommendations: typeof models[0] | any[] = []; // We will map to SoftwareRecommendation
+  const softwareRecommendations: SoftwareRecommendation[] = [];
   if (hardware.os === 'macOS') {
      softwareRecommendations.push({ name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Excelente interfaz gráfica, muy optimizada para Apple Silicon (Metal).' });
      softwareRecommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'La forma más fácil de correr modelos desde la terminal o integrar con otras apps.' });
@@ -137,8 +152,6 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
 
   let verdict: EconomicAnalysis['verdict'] = 'api';
   let verdictMessage = '';
-
-  const hoursPerMonth = usage.hoursPerDay * 30;
 
   if (usage.needsPrivacy || usage.offlineRequired) {
     verdict = 'local';

@@ -12,6 +12,37 @@ interface Props {
 
 export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
   const { t } = useLanguage();
+  const [isDetectingElectricity, setIsDetectingElectricity] = React.useState(false);
+  const [electricityDetectionStatus, setElectricityDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
+
+  const detectElectricityCost = async () => {
+    const costsByCountry: Record<string, number> = {
+      US: 0.16, GB: 0.40, DE: 0.40, FR: 0.28, ES: 0.25, IT: 0.35,
+      MX: 0.08, AR: 0.05, CO: 0.15, CL: 0.18, PE: 0.18, BR: 0.17,
+      UY: 0.22, CR: 0.15, DO: 0.20, PA: 0.18, SV: 0.18, EC: 0.10,
+    };
+
+    setIsDetectingElectricity(true);
+    setElectricityDetectionStatus('idle');
+
+    try {
+      const response = await fetch('https://get.geojs.io/v1/ip/country.json');
+      const data = await response.json();
+      const countryCost = costsByCountry[data.country];
+
+      if (!countryCost) {
+        setElectricityDetectionStatus('error');
+        return;
+      }
+
+      setUsage({ ...usage, electricityCostPerKwh: countryCost });
+      setElectricityDetectionStatus('success');
+    } catch {
+      setElectricityDetectionStatus('error');
+    } finally {
+      setIsDetectingElectricity(false);
+    }
+  };
   
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const presetKey = e.target.value;
@@ -23,18 +54,18 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
   };
 
   return (
-    <div className="space-y-6 flex flex-col">
+    <div className="flex flex-col gap-5">
       {/* Hardware Section */}
-      <section className="border border-slate-800 p-5 flex flex-col gap-6 bg-slate-900/30 rounded-xl">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-0">
+      <section className="panel-card flex flex-col gap-6">
+        <h2 className="font-mono text-2xl font-medium tracking-normal text-[#f3f8ef]">
           {t('input.hardware.title')}
         </h2>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">{t('input.hardware.preset')}</label>
+            <label className="micro-label mb-2">{t('input.hardware.preset')}</label>
             <select 
-              className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white outline-none focus:border-emerald-500"
+              className="control-field"
               value={hardware.preset}
               onChange={handlePresetChange}
             >
@@ -50,9 +81,9 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">{t('input.hardware.gpuMaker')}</label>
+              <label className="micro-label mb-2">{t('input.hardware.gpuMaker')}</label>
               <select 
-                className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white outline-none focus:border-emerald-500 disabled:opacity-50"
+                className="control-field disabled:opacity-50"
                 value={hardware.gpuMaker}
                 onChange={(e) => setHardware({ ...hardware, gpuMaker: e.target.value as GPUMaker, preset: 'custom' })}
               >
@@ -65,54 +96,54 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
             </div>
             
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">{t('input.hardware.vram')}</label>
+              <label className="micro-label mb-2">{t('input.hardware.vram')}</label>
               <input 
                 type="number"
                 min="0"
-                className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white outline-none focus:border-emerald-500"
+                className="control-field"
                 value={hardware.vramGB}
                 onChange={(e) => setHardware({ ...hardware, vramGB: Number(e.target.value), preset: 'custom' })}
               />
             </div>
             
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">{t('input.hardware.ram')}</label>
+              <label className="micro-label mb-2">{t('input.hardware.ram')}</label>
               <input 
                 type="number"
                 min="4"
-                className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white outline-none focus:border-emerald-500"
+                className="control-field"
                 value={hardware.ramGB}
                 onChange={(e) => setHardware({ ...hardware, ramGB: Number(e.target.value), preset: 'custom' })}
               />
             </div>
 
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">{t('input.hardware.price')}</label>
+              <label className="micro-label mb-2">{t('input.hardware.price')}</label>
               <input 
                 type="number"
                 min="0"
                 step="100"
-                className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white outline-none focus:border-emerald-500"
+                className="control-field"
                 value={hardware.devicePriceUsd}
                 onChange={(e) => setHardware({ ...hardware, devicePriceUsd: Number(e.target.value), preset: 'custom' })}
               />
-              <span className="block text-[9px] text-emerald-400/80 mt-1.5 uppercase tracking-wider">{t('input.hardware.marketEst')}</span>
+              <span className="mt-2 block text-[9px] uppercase tracking-[0.18em] text-[#dfeadd]/80">{t('input.hardware.marketEst')}</span>
             </div>
           </div>
         </div>
       </section>
 
       {/* Usage Section */}
-      <section className="border border-slate-800 p-5 flex flex-col gap-6 bg-slate-900/30 rounded-xl">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-0">
+      <section className="panel-card flex flex-col gap-6">
+        <h2 className="font-mono text-2xl font-medium tracking-normal text-[#f3f8ef]">
           {t('input.usage.title')}
         </h2>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">{t('input.usage.frequency')}</label>
+            <label className="micro-label mb-2">{t('input.usage.frequency')}</label>
             <select 
-              className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white outline-none focus:border-emerald-500"
+              className="control-field"
               value={usage.frequency}
               onChange={(e) => setUsage({ ...usage, frequency: e.target.value as UsageFrequency })}
             >
@@ -124,50 +155,68 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
           </div>
 
           <div>
-            <label className="block text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">{t('input.usage.goal')}</label>
+            <label className="micro-label mb-2">{t('input.usage.goal')}</label>
             <select 
-              className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white outline-none focus:border-emerald-500"
+              className="control-field"
               value={usage.goal}
               onChange={(e) => setUsage({ ...usage, goal: e.target.value as UsageGoal })}
             >
               <option value="chat">{t('input.usage.goal.chat')}</option>
               <option value="coding">{t('input.usage.goal.coding')}</option>
               <option value="rag">{t('input.usage.goal.rag')}</option>
-              <option value="agents">Agents</option>
-              <option value="embedding">Embeddings</option>
+              <option value="agents">{t('input.usage.goal.agents')}</option>
+              <option value="embedding">{t('input.usage.goal.embedding')}</option>
             </select>
           </div>
 
           <div>
-            <label className="flex justify-between text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">
+            <label className="mb-2 flex justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-[#aab6a8]">
               <span>{t('input.usage.hours')}</span>
-              <span className="text-emerald-400 font-mono font-normal">{usage.hoursPerDay} hrs</span>
+              <span className="font-mono font-normal text-[#dfeadd]">{usage.hoursPerDay} hrs</span>
             </label>
             <input 
               type="range"
               min="0.5"
               step="0.5"
               max="24"
-              className="w-full accent-emerald-500 h-1.5 bg-slate-800 rounded-full appearance-none outline-none"
+              className="h-1.5 w-full appearance-none rounded-full bg-[#dfeadd]/15 accent-[#dfeadd] outline-none"
               value={usage.hoursPerDay}
               onChange={(e) => setUsage({ ...usage, hoursPerDay: Number(e.target.value) })}
             />
           </div>
 
           <div>
-            <label className="block text-[11px] mb-1.5 text-slate-400 font-bold uppercase tracking-wider">{t('input.usage.electricity')}</label>
+            <label className="micro-label mb-2">{t('input.usage.electricity')}</label>
             <input 
               type="number"
               min="0"
               step="0.01"
-              className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white outline-none focus:border-emerald-500"
+              className="control-field"
               value={usage.electricityCostPerKwh}
-              onChange={(e) => setUsage({ ...usage, electricityCostPerKwh: Number(e.target.value) })}
+              onChange={(e) => {
+                setElectricityDetectionStatus('idle');
+                setUsage({ ...usage, electricityCostPerKwh: Number(e.target.value) });
+              }}
             />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={detectElectricityCost}
+                disabled={isDetectingElectricity}
+                className="text-[10px] uppercase tracking-[0.18em] text-[#dfeadd] hover:text-white disabled:cursor-wait disabled:opacity-60"
+              >
+                {isDetectingElectricity ? t('input.usage.electricity.detecting') : t('input.usage.electricity.detect')}
+              </button>
+              {electricityDetectionStatus !== 'idle' && (
+                <span className={`text-[10px] ${electricityDetectionStatus === 'success' ? 'text-[#dfeadd]' : 'text-[#f0d48a]'}`}>
+                  {electricityDetectionStatus === 'success' ? t('input.usage.electricity.detected') : t('input.usage.electricity.unavailable')}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 pt-2">
-            <label className="flex items-center gap-3 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-3">
               <div className="relative flex items-center">
                 <input 
                   type="checkbox" 
@@ -175,12 +224,12 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                   checked={usage.needsPrivacy}
                   onChange={(e) => setUsage({ ...usage, needsPrivacy: e.target.checked })}
                 />
-                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                <div className="peer h-5 w-9 rounded-full bg-[#dfeadd]/20 peer-focus:outline-none peer-checked:bg-[#dfeadd] after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[#dfeadd]/50 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
               </div>
-              <span className="text-xs text-slate-300">{t('input.usage.privacy')}</span>
+              <span className="text-xs text-[#c9d4c7]">{t('input.usage.privacy')}</span>
             </label>
 
-            <label className="flex items-center gap-3 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-3">
               <div className="relative flex items-center">
                 <input 
                   type="checkbox" 
@@ -188,9 +237,9 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                   checked={usage.offlineRequired}
                   onChange={(e) => setUsage({ ...usage, offlineRequired: e.target.checked })}
                 />
-                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                <div className="peer h-5 w-9 rounded-full bg-[#dfeadd]/20 peer-focus:outline-none peer-checked:bg-[#dfeadd] after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[#dfeadd]/50 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
               </div>
-              <span className="text-xs text-slate-300">{t('input.usage.offline')}</span>
+              <span className="text-xs text-[#c9d4c7]">{t('input.usage.offline')}</span>
             </label>
           </div>
 
