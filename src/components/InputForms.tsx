@@ -265,33 +265,6 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 pt-2">
-            <label className="flex cursor-pointer items-center gap-3">
-              <div className="relative flex items-center">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={usage.needsPrivacy}
-                  onChange={(e) => setUsage({ ...usage, needsPrivacy: e.target.checked })}
-                />
-                <div className="peer h-5 w-9 rounded-full bg-[#7dd3fc]/20 peer-focus:outline-none peer-checked:bg-[#7dd3fc] after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[#7dd3fc]/50 after:bg-[#eaf4ff] after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-[#eaf4ff]"></div>
-              </div>
-              <span className="text-xs text-[#b7cbe2]">{t('input.usage.privacy')}</span>
-            </label>
-
-            <label className="flex cursor-pointer items-center gap-3">
-              <div className="relative flex items-center">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={usage.offlineRequired}
-                  onChange={(e) => setUsage({ ...usage, offlineRequired: e.target.checked })}
-                />
-                <div className="peer h-5 w-9 rounded-full bg-[#7dd3fc]/20 peer-focus:outline-none peer-checked:bg-[#7dd3fc] after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[#7dd3fc]/50 after:bg-[#eaf4ff] after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-[#eaf4ff]"></div>
-              </div>
-              <span className="text-xs text-[#b7cbe2]">{t('input.usage.offline')}</span>
-            </label>
-          </div>
         </div>
       </section>
     </div>
