@@ -158,6 +158,9 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
       verdict,
       verdictMessage,
       costDataOverTime,
+      currencyCode: usage.currencyCode,
+      currencySymbol: usage.currencySymbol,
+      exchangeRateFromUsd: usage.exchangeRateFromUsd,
     },
     overallSummary: verdict === 'local'
       ? t('results.verdict.local')

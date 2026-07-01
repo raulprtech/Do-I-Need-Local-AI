@@ -23,6 +23,9 @@ const baseUsage: UsageProfile = {
   offlineRequired: false,
   modelSizePreference: 'medium',
   electricityCostPerKwh: 0.2,
+  currencyCode: 'USD',
+  currencySymbol: '$',
+  exchangeRateFromUsd: 1,
 };
 
 const noGpu = evaluateSystem(

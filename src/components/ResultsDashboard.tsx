@@ -10,6 +10,17 @@ interface Props {
 export function ResultsDashboard({ diagnosis }: Props) {
   const { t } = useLanguage();
   const { mainLimitation, recommendedModels, economics, overallSummary } = diagnosis;
+  const exchangeRate = economics.exchangeRateFromUsd || 1;
+  const formatMoney = (usd: number, maximumFractionDigits = 0) => {
+    const value = usd * exchangeRate;
+    const suffix = economics.currencySymbol.trim() === economics.currencyCode ? '' : ` ${economics.currencyCode}`;
+    return `${economics.currencySymbol}${value.toLocaleString(undefined, { maximumFractionDigits })}${suffix}`;
+  };
+  const localizedCostData = economics.costDataOverTime.map((point) => ({
+    ...point,
+    apiCost: point.apiCost * exchangeRate,
+    localCost: point.localCost * exchangeRate,
+  }));
 
   return (
     <div className="flex min-w-0 flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -40,12 +51,12 @@ export function ResultsDashboard({ diagnosis }: Props) {
         <div className="grid grid-cols-2 gap-4 lg:min-w-[280px]">
           <div>
             <span className="micro-label mb-2">API</span>
-            <span className="block font-mono text-4xl text-[#dbeafe]">${economics.monthlyApiCost.toFixed(0)}</span>
+            <span className="block font-mono text-4xl text-[#dbeafe]">{formatMoney(economics.monthlyApiCost)}</span>
             <span className="text-xs text-[#8ba7c7]">/ month</span>
           </div>
           <div>
             <span className="micro-label mb-2">Local</span>
-            <span className="block font-mono text-4xl text-[#7dd3fc]">${economics.totalLocalMonthly.toFixed(0)}</span>
+            <span className="block font-mono text-4xl text-[#7dd3fc]">{formatMoney(economics.totalLocalMonthly)}</span>
             <span className="text-xs text-[#8ba7c7]">/ month</span>
           </div>
         </div>
@@ -112,17 +123,17 @@ export function ResultsDashboard({ diagnosis }: Props) {
           <div className="mb-6 grid grid-cols-2 gap-4">
             <div>
               <span className="block text-[10px] uppercase tracking-[0.18em] text-[#405a78]">{t('results.economics.apiCost')}</span>
-              <span className="mt-2 block font-mono text-4xl">${economics.monthlyApiCost.toFixed(2)}</span>
+              <span className="mt-2 block font-mono text-4xl">{formatMoney(economics.monthlyApiCost, 2)}</span>
             </div>
             <div className="border-l border-[#06111f]/15 pl-4">
               <span className="block text-[10px] uppercase tracking-[0.18em] text-[#405a78]">{t('results.economics.localCost')}</span>
-              <span className="mt-2 block font-mono text-4xl">${economics.totalLocalMonthly.toFixed(2)}</span>
+              <span className="mt-2 block font-mono text-4xl">{formatMoney(economics.totalLocalMonthly, 2)}</span>
             </div>
           </div>
 
           <div className="min-h-[230px] flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={economics.costDataOverTime} margin={{ top: 10, right: 12, left: -18, bottom: 0 }}>
+              <AreaChart data={localizedCostData} margin={{ top: 10, right: 12, left: -18, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorApi" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#06111f" stopOpacity={0.28}/>
@@ -135,8 +146,8 @@ export function ResultsDashboard({ diagnosis }: Props) {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,17,31,0.16)" vertical={false} />
                 <XAxis dataKey="month" stroke="#405a78" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `M${val}`} />
-                <YAxis stroke="#405a78" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
-                <Tooltip contentStyle={{ backgroundColor: '#06111f', borderColor: 'rgba(125,211,252,0.22)', borderRadius: '14px', color: '#eaf4ff' }} itemStyle={{ fontSize: '12px' }} />
+                <YAxis stroke="#405a78" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `${economics.currencySymbol}${Number(val).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
+                <Tooltip contentStyle={{ backgroundColor: '#06111f', borderColor: 'rgba(125,211,252,0.22)', borderRadius: '14px', color: '#eaf4ff' }} itemStyle={{ fontSize: '12px' }} formatter={(value) => formatMoney(Number(value))} />
                 <Legend verticalAlign="top" height={34} iconType="circle" wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#405a78' }} />
                 <Area type="monotone" dataKey="apiCost" name="API" stroke="#06111f" fillOpacity={1} fill="url(#colorApi)" strokeWidth={2} />
                 <Area type="monotone" dataKey="localCost" name="Local" stroke="#4f83c2" fillOpacity={1} fill="url(#colorLocal)" strokeWidth={2} />

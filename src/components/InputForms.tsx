@@ -1,6 +1,8 @@
 import React from 'react';
-import { HardwareProfile, UsageProfile, GPUMaker, OS, UsageGoal, UsageFrequency } from '../lib/types';
+import { HardwareProfile, UsageProfile, GPUMaker, UsageGoal, UsageFrequency } from '../lib/types';
 import { HARDWARE_PRESETS } from '../lib/calculator';
+import { detectHardwareProfile } from '../lib/hardwareDetection';
+import { CURRENCY_OPTIONS, detectCountryDefaults } from '../lib/locale';
 import { useLanguage } from '../lib/i18n';
 
 interface Props {
@@ -13,29 +15,23 @@ interface Props {
 export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
   const { t } = useLanguage();
   const [isDetectingElectricity, setIsDetectingElectricity] = React.useState(false);
+  const [isDetectingGpu, setIsDetectingGpu] = React.useState(false);
   const [electricityDetectionStatus, setElectricityDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
+  const [gpuDetectionStatus, setGpuDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
 
   const detectElectricityCost = async () => {
-    const costsByCountry: Record<string, number> = {
-      US: 0.16, GB: 0.40, DE: 0.40, FR: 0.28, ES: 0.25, IT: 0.35,
-      MX: 0.08, AR: 0.05, CO: 0.15, CL: 0.18, PE: 0.18, BR: 0.17,
-      UY: 0.22, CR: 0.15, DO: 0.20, PA: 0.18, SV: 0.18, EC: 0.10,
-    };
-
     setIsDetectingElectricity(true);
     setElectricityDetectionStatus('idle');
 
     try {
-      const response = await fetch('https://get.geojs.io/v1/ip/country.json');
-      const data = await response.json();
-      const countryCost = costsByCountry[data.country];
-
-      if (!countryCost) {
-        setElectricityDetectionStatus('error');
-        return;
-      }
-
-      setUsage({ ...usage, electricityCostPerKwh: countryCost });
+      const defaults = await detectCountryDefaults();
+      setUsage({
+        ...usage,
+        electricityCostPerKwh: defaults.electricityCostPerKwh,
+        currencyCode: defaults.currencyCode,
+        currencySymbol: defaults.currencySymbol,
+        exchangeRateFromUsd: defaults.exchangeRateFromUsd,
+      });
       setElectricityDetectionStatus('success');
     } catch {
       setElectricityDetectionStatus('error');
@@ -43,7 +39,22 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
       setIsDetectingElectricity(false);
     }
   };
-  
+
+  const detectGpu = async () => {
+    setIsDetectingGpu(true);
+    setGpuDetectionStatus('idle');
+
+    try {
+      const detected = await detectHardwareProfile(hardware);
+      setHardware({ ...hardware, ...detected });
+      setGpuDetectionStatus('success');
+    } catch {
+      setGpuDetectionStatus('error');
+    } finally {
+      setIsDetectingGpu(false);
+    }
+  };
+
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const presetKey = e.target.value;
     if (presetKey === 'custom') {
@@ -55,16 +66,32 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Hardware Section */}
-      <section className="panel-card flex flex-col gap-6">
+      <section id="hardware" className="panel-card scroll-mt-8 flex flex-col gap-6">
         <h2 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">
           {t('input.hardware.title')}
         </h2>
-        
+
         <div className="space-y-4">
+          <div className="rounded-[14px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-4">
+            <button
+              type="button"
+              onClick={detectGpu}
+              disabled={isDetectingGpu}
+              className="text-[10px] uppercase tracking-[0.18em] text-[#7dd3fc] hover:text-[#eaf4ff] disabled:cursor-wait disabled:opacity-60"
+            >
+              {isDetectingGpu ? t('input.hardware.detectingGpu') : t('input.hardware.detectGpu')}
+            </button>
+            {gpuDetectionStatus !== 'idle' && (
+              <span className={`ml-3 text-[10px] ${gpuDetectionStatus === 'success' ? 'text-[#7dd3fc]' : 'text-[#f0d48a]'}`}>
+                {gpuDetectionStatus === 'success' ? t('input.hardware.detectedGpu') : t('input.hardware.gpuUnavailable')}
+              </span>
+            )}
+            <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">{hardware.gpuName}</p>
+          </div>
+
           <div>
             <label className="micro-label mb-2">{t('input.hardware.preset')}</label>
-            <select 
+            <select
               className="control-field"
               value={hardware.preset}
               onChange={handlePresetChange}
@@ -82,7 +109,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 sm:col-span-1">
               <label className="micro-label mb-2">{t('input.hardware.gpuMaker')}</label>
-              <select 
+              <select
                 className="control-field disabled:opacity-50"
                 value={hardware.gpuMaker}
                 onChange={(e) => setHardware({ ...hardware, gpuMaker: e.target.value as GPUMaker, preset: 'custom' })}
@@ -94,10 +121,10 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                 <option value="None">None (CPU)</option>
               </select>
             </div>
-            
+
             <div className="col-span-2 sm:col-span-1">
               <label className="micro-label mb-2">{t('input.hardware.vram')}</label>
-              <input 
+              <input
                 type="number"
                 min="0"
                 className="control-field"
@@ -105,10 +132,10 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                 onChange={(e) => setHardware({ ...hardware, vramGB: Number(e.target.value), preset: 'custom' })}
               />
             </div>
-            
+
             <div className="col-span-2 sm:col-span-1">
               <label className="micro-label mb-2">{t('input.hardware.ram')}</label>
-              <input 
+              <input
                 type="number"
                 min="4"
                 className="control-field"
@@ -119,7 +146,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
 
             <div className="col-span-2 sm:col-span-1">
               <label className="micro-label mb-2">{t('input.hardware.price')}</label>
-              <input 
+              <input
                 type="number"
                 min="0"
                 step="100"
@@ -133,16 +160,15 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
         </div>
       </section>
 
-      {/* Usage Section */}
-      <section className="panel-card flex flex-col gap-6">
+      <section id="usage" className="panel-card scroll-mt-8 flex flex-col gap-6">
         <h2 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">
           {t('input.usage.title')}
         </h2>
-        
+
         <div className="space-y-4">
           <div>
             <label className="micro-label mb-2">{t('input.usage.frequency')}</label>
-            <select 
+            <select
               className="control-field"
               value={usage.frequency}
               onChange={(e) => setUsage({ ...usage, frequency: e.target.value as UsageFrequency })}
@@ -156,7 +182,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
 
           <div>
             <label className="micro-label mb-2">{t('input.usage.goal')}</label>
-            <select 
+            <select
               className="control-field"
               value={usage.goal}
               onChange={(e) => setUsage({ ...usage, goal: e.target.value as UsageGoal })}
@@ -174,7 +200,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
               <span>{t('input.usage.hours')}</span>
               <span className="font-mono font-normal text-[#7dd3fc]">{usage.hoursPerDay} hrs</span>
             </label>
-            <input 
+            <input
               type="range"
               min="0.5"
               step="0.5"
@@ -186,8 +212,32 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
           </div>
 
           <div>
+            <label className="micro-label mb-2">{t('input.usage.currency')}</label>
+            <select
+              className="control-field"
+              value={usage.currencyCode}
+              onChange={(e) => {
+                const selected = CURRENCY_OPTIONS.find((currency) => currency.currencyCode === e.target.value);
+                if (!selected) return;
+                setUsage({
+                  ...usage,
+                  currencyCode: selected.currencyCode,
+                  currencySymbol: selected.currencySymbol,
+                  exchangeRateFromUsd: selected.exchangeRateFromUsd,
+                });
+              }}
+            >
+              {CURRENCY_OPTIONS.map((currency) => (
+                <option key={currency.currencyCode} value={currency.currencyCode}>
+                  {currency.currencyCode} ({currency.currencySymbol})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="micro-label mb-2">{t('input.usage.electricity')}</label>
-            <input 
+            <input
               type="number"
               min="0"
               step="0.01"
@@ -218,8 +268,8 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
           <div className="flex flex-col gap-3 pt-2">
             <label className="flex cursor-pointer items-center gap-3">
               <div className="relative flex items-center">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   className="sr-only peer"
                   checked={usage.needsPrivacy}
                   onChange={(e) => setUsage({ ...usage, needsPrivacy: e.target.checked })}
@@ -231,8 +281,8 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
 
             <label className="flex cursor-pointer items-center gap-3">
               <div className="relative flex items-center">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   className="sr-only peer"
                   checked={usage.offlineRequired}
                   onChange={(e) => setUsage({ ...usage, offlineRequired: e.target.checked })}
@@ -242,7 +292,6 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
               <span className="text-xs text-[#b7cbe2]">{t('input.usage.offline')}</span>
             </label>
           </div>
-
         </div>
       </section>
     </div>

@@ -23,6 +23,9 @@ export interface UsageProfile {
   offlineRequired: boolean;
   modelSizePreference: 'small' | 'medium' | 'large' | 'any';
   electricityCostPerKwh: number;
+  currencyCode: string;
+  currencySymbol: string;
+  exchangeRateFromUsd: number;
 }
 
 export interface ModelCapability {
@@ -43,6 +46,9 @@ export interface EconomicAnalysis {
   verdict: 'local' | 'api' | 'hybrid';
   verdictMessage: string;
   costDataOverTime: { month: number; apiCost: number; localCost: number }[];
+  currencyCode: string;
+  currencySymbol: string;
+  exchangeRateFromUsd: number;
 }
 
 export interface SoftwareRecommendation {
