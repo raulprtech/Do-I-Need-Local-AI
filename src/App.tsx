@@ -92,24 +92,24 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111311] font-sans">
+    <div className="min-h-screen bg-[#07111f] font-sans">
       <div className="dashboard-shell flex min-h-screen w-full flex-col overflow-hidden">
         <Header onShare={handleShare} shared={shared} />
 
         <main className="flex-1 w-full px-5 pb-6 pt-5 md:px-10 md:pb-10 md:pt-8">
-          <div className="mb-8 flex flex-col gap-4 border-b border-[#dfeadd]/10 pb-7 md:flex-row md:items-end md:justify-between">
+          <div className="mb-8 flex flex-col gap-4 border-b border-[#7dd3fc]/10 pb-7 md:flex-row md:items-end md:justify-between">
             <div className="max-w-3xl">
-              <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#aab6a8]">Local AI readiness</p>
-              <h2 className="font-mono text-4xl font-medium tracking-normal text-[#f3f8ef] md:text-5xl">
+              <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#8ba7c7]">Local AI readiness</p>
+              <h2 className="font-mono text-4xl font-medium tracking-normal text-[#dbeafe] md:text-5xl">
                 {t('app.title')}
               </h2>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-[#aab6a8]">
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-[#8ba7c7]">
                 {t('app.subtitle')}
               </p>
             </div>
-            <div className="flex items-center gap-3 text-right font-mono text-[#f3f8ef]">
+            <div className="flex items-center gap-3 text-right font-mono text-[#dbeafe]">
               <span className="text-3xl md:text-4xl">12</span>
-              <span className="text-sm text-[#aab6a8]">month<br />projection</span>
+              <span className="text-sm text-[#8ba7c7]">month<br />projection</span>
             </div>
           </div>
 

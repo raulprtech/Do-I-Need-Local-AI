@@ -57,7 +57,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
     <div className="flex flex-col gap-5">
       {/* Hardware Section */}
       <section className="panel-card flex flex-col gap-6">
-        <h2 className="font-mono text-2xl font-medium tracking-normal text-[#f3f8ef]">
+        <h2 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">
           {t('input.hardware.title')}
         </h2>
         
@@ -127,7 +127,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                 value={hardware.devicePriceUsd}
                 onChange={(e) => setHardware({ ...hardware, devicePriceUsd: Number(e.target.value), preset: 'custom' })}
               />
-              <span className="mt-2 block text-[9px] uppercase tracking-[0.18em] text-[#dfeadd]/80">{t('input.hardware.marketEst')}</span>
+              <span className="mt-2 block text-[9px] uppercase tracking-[0.18em] text-[#7dd3fc]/80">{t('input.hardware.marketEst')}</span>
             </div>
           </div>
         </div>
@@ -135,7 +135,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
 
       {/* Usage Section */}
       <section className="panel-card flex flex-col gap-6">
-        <h2 className="font-mono text-2xl font-medium tracking-normal text-[#f3f8ef]">
+        <h2 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">
           {t('input.usage.title')}
         </h2>
         
@@ -170,16 +170,16 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
           </div>
 
           <div>
-            <label className="mb-2 flex justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-[#aab6a8]">
+            <label className="mb-2 flex justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8ba7c7]">
               <span>{t('input.usage.hours')}</span>
-              <span className="font-mono font-normal text-[#dfeadd]">{usage.hoursPerDay} hrs</span>
+              <span className="font-mono font-normal text-[#7dd3fc]">{usage.hoursPerDay} hrs</span>
             </label>
             <input 
               type="range"
               min="0.5"
               step="0.5"
               max="24"
-              className="h-1.5 w-full appearance-none rounded-full bg-[#dfeadd]/15 accent-[#dfeadd] outline-none"
+              className="h-1.5 w-full appearance-none rounded-full bg-[#7dd3fc]/15 accent-[#7dd3fc] outline-none"
               value={usage.hoursPerDay}
               onChange={(e) => setUsage({ ...usage, hoursPerDay: Number(e.target.value) })}
             />
@@ -203,12 +203,12 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                 type="button"
                 onClick={detectElectricityCost}
                 disabled={isDetectingElectricity}
-                className="text-[10px] uppercase tracking-[0.18em] text-[#dfeadd] hover:text-white disabled:cursor-wait disabled:opacity-60"
+                className="text-[10px] uppercase tracking-[0.18em] text-[#7dd3fc] hover:text-[#eaf4ff] disabled:cursor-wait disabled:opacity-60"
               >
                 {isDetectingElectricity ? t('input.usage.electricity.detecting') : t('input.usage.electricity.detect')}
               </button>
               {electricityDetectionStatus !== 'idle' && (
-                <span className={`text-[10px] ${electricityDetectionStatus === 'success' ? 'text-[#dfeadd]' : 'text-[#f0d48a]'}`}>
+                <span className={`text-[10px] ${electricityDetectionStatus === 'success' ? 'text-[#7dd3fc]' : 'text-[#f0d48a]'}`}>
                   {electricityDetectionStatus === 'success' ? t('input.usage.electricity.detected') : t('input.usage.electricity.unavailable')}
                 </span>
               )}
@@ -224,9 +224,9 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                   checked={usage.needsPrivacy}
                   onChange={(e) => setUsage({ ...usage, needsPrivacy: e.target.checked })}
                 />
-                <div className="peer h-5 w-9 rounded-full bg-[#dfeadd]/20 peer-focus:outline-none peer-checked:bg-[#dfeadd] after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[#dfeadd]/50 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                <div className="peer h-5 w-9 rounded-full bg-[#7dd3fc]/20 peer-focus:outline-none peer-checked:bg-[#7dd3fc] after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[#7dd3fc]/50 after:bg-[#eaf4ff] after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-[#eaf4ff]"></div>
               </div>
-              <span className="text-xs text-[#c9d4c7]">{t('input.usage.privacy')}</span>
+              <span className="text-xs text-[#b7cbe2]">{t('input.usage.privacy')}</span>
             </label>
 
             <label className="flex cursor-pointer items-center gap-3">
@@ -237,9 +237,9 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                   checked={usage.offlineRequired}
                   onChange={(e) => setUsage({ ...usage, offlineRequired: e.target.checked })}
                 />
-                <div className="peer h-5 w-9 rounded-full bg-[#dfeadd]/20 peer-focus:outline-none peer-checked:bg-[#dfeadd] after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[#dfeadd]/50 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                <div className="peer h-5 w-9 rounded-full bg-[#7dd3fc]/20 peer-focus:outline-none peer-checked:bg-[#7dd3fc] after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-[#7dd3fc]/50 after:bg-[#eaf4ff] after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-[#eaf4ff]"></div>
               </div>
-              <span className="text-xs text-[#c9d4c7]">{t('input.usage.offline')}</span>
+              <span className="text-xs text-[#b7cbe2]">{t('input.usage.offline')}</span>
             </label>
           </div>
 
