@@ -29,8 +29,6 @@ export default function Header({ onShare, shared, activeView, onNavigate }: Prop
           </button>
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#eaf4ff] md:flex">
             <button type="button" onClick={() => onNavigate('dashboard')} className={navClass('dashboard')}>Dashboard</button>
-            <button type="button" onClick={() => onNavigate('dashboard', 'hardware')} className="transition hover:text-[#7dd3fc]">Hardware</button>
-            <button type="button" onClick={() => onNavigate('dashboard', 'usage')} className="transition hover:text-[#7dd3fc]">Usage</button>
             <button type="button" onClick={() => onNavigate('why')} className={navClass('why')}>Why</button>
             <button type="button" onClick={() => onNavigate('how')} className={navClass('how')}>{t('header.howItWorks')}</button>
           </nav>
@@ -42,7 +40,7 @@ export default function Header({ onShare, shared, activeView, onNavigate }: Prop
             className="pill-button flex items-center gap-2"
           >
             <Globe className="h-4 w-4" />
-            <span>{lang === 'es' ? 'EN' : 'ES'}</span>
+            <span>{lang === 'es' ? 'ES' : 'EN'}</span>
           </button>
           <button type="button" onClick={() => onNavigate('how')} className="hidden rounded-full p-2 text-[#eaf4ff] transition hover:bg-[#7dd3fc]/10 sm:block" title={t('header.howItWorks')}>
             <HelpCircle className="h-5 w-5" />
@@ -60,8 +58,6 @@ export default function Header({ onShare, shared, activeView, onNavigate }: Prop
       </div>
       <nav className="flex gap-3 overflow-x-auto border-b border-[#7dd3fc]/10 pb-5 text-xs font-medium text-[#eaf4ff] md:hidden">
         <button type="button" onClick={() => onNavigate('dashboard')} className={`${navClass('dashboard')} whitespace-nowrap`}>Dashboard</button>
-        <button type="button" onClick={() => onNavigate('dashboard', 'hardware')} className="whitespace-nowrap transition hover:text-[#7dd3fc]">Hardware</button>
-        <button type="button" onClick={() => onNavigate('dashboard', 'usage')} className="whitespace-nowrap transition hover:text-[#7dd3fc]">Usage</button>
         <button type="button" onClick={() => onNavigate('why')} className={`${navClass('why')} whitespace-nowrap`}>Why</button>
         <button type="button" onClick={() => onNavigate('how')} className={`${navClass('how')} whitespace-nowrap`}>{t('header.howItWorks')}</button>
       </nav>

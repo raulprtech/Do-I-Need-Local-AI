@@ -57,15 +57,12 @@ function getEffectiveVramGB(hardware: HardwareProfile): number {
 function getSoftwareRecommendations(hardware: HardwareProfile, usage: UsageProfile): SoftwareRecommendation[] {
   if (hardware.os === 'macOS') {
     return [
-      { name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Interfaz grafica optimizada para Apple Silicon con soporte Metal.' },
       { name: 'Ollama', url: 'https://ollama.com', description: 'Forma simple de correr modelos desde terminal e integrarlos con otras apps.' },
     ];
   }
 
   if (hardware.os === 'Windows') {
-    const recommendations: SoftwareRecommendation[] = [
-      { name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Interfaz grafica facil de usar para descargar y probar modelos GGUF.' },
-    ];
+    const recommendations: SoftwareRecommendation[] = [];
 
     if (hardware.gpuMaker === 'NVIDIA') {
       recommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'Ideal para terminal, flujos locales y editores de codigo.' });
