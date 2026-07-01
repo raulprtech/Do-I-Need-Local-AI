@@ -2,13 +2,14 @@ import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import Header from './components/Header';
 import { InputForms } from './components/InputForms';
 import { ResultsDashboard } from './components/ResultsDashboard';
+import { ComparisonPage } from './components/ComparisonPage';
 import { evaluateSystem } from './lib/calculator';
 import { detectHardwareProfile } from './lib/hardwareDetection';
 import { DEFAULT_COUNTRY, detectCountryDefaults } from './lib/locale';
 import { HardwareProfile, UsageProfile } from './lib/types';
 import { useLanguage } from './lib/i18n';
 
-type View = 'dashboard' | 'why' | 'how';
+type View = 'dashboard' | 'compare' | 'why' | 'how';
 
 function encodeState(hardware: HardwareProfile, usage: UsageProfile) {
   try {
@@ -229,6 +230,7 @@ export default function App() {
               </div>
             </>
           )}
+          {view === 'compare' && <ComparisonPage hardware={hardware} usage={usage} />}
           {view === 'why' && <WhyPage />}
           {view === 'how' && <HowPage />}
         </main>
