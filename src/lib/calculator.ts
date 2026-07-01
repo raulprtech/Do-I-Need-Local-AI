@@ -1,4 +1,5 @@
-import { HardwareProfile, UsageProfile, Diagnosis, ModelCapability, EconomicAnalysis, SoftwareRecommendation } from './types';
+import { evaluateCatalogEntry, MODEL_CATALOG } from './modelCatalog';
+import { HardwareProfile, UsageProfile, Diagnosis, EconomicAnalysis, SoftwareRecommendation } from './types';
 
 export const HARDWARE_PRESETS: Record<string, Partial<HardwareProfile>> = {
   'custom': { preset: 'custom' },
@@ -41,136 +42,100 @@ function estimateApiCostMonthly(usage: UsageProfile): number {
   const requestsPerMonth =
     usage.hoursPerDay * requestsPerHour[usage.frequency] * activeDaysPerMonth[usage.frequency];
   const tokensPerMonth = requestsPerMonth * tokensPerRequest[usage.goal];
-  
+
   return (tokensPerMonth / 1000000) * ratePerMillion[usage.modelSizePreference];
 }
 
-export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t: (key: string) => string): Diagnosis {
-  let effectiveVram = hardware.vramGB;
-  
-  // Apple Silicon shares RAM and VRAM. Typically up to ~75% of RAM can be used as VRAM.
+function getEffectiveVramGB(hardware: HardwareProfile): number {
   if (hardware.gpuMaker === 'Apple') {
-    effectiveVram = hardware.ramGB * 0.75;
+    return hardware.ramGB * 0.75;
   }
 
-  const models: ModelCapability[] = [];
+  return hardware.vramGB;
+}
 
-  // Rules of thumb for GGUF/llama.cpp
-  // 7B-8B Q4: ~5-6 GB VRAM
-  // 14B Q4: ~10 GB VRAM
-  // 32B Q4: ~20 GB VRAM
-  // 70B Q4: ~40 GB VRAM
-
-  models.push({
-    name: 'Phi-3 Mini',
-    parameters: '3.8B',
-    quantization: '4-bit (Q4_K_M)',
-    speed: effectiveVram >= 4 ? 'fast' : (hardware.ramGB >= 8 ? 'acceptable' : 'slow'),
-    canRun: effectiveVram >= 4 || hardware.ramGB >= 8,
-    notes: t('calc.models.phi3'),
-  });
-
-  models.push({
-    name: 'Llama 3 8B / Mistral 7B',
-    parameters: '8B',
-    quantization: '4-bit (Q4_K_M)',
-    speed: effectiveVram >= 6 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'slow'),
-    canRun: effectiveVram >= 6 || hardware.ramGB >= 16,
-    notes: effectiveVram >= 6 ? t('calc.models.llama3_8b.gpu') : t('calc.models.llama3_8b.cpu'),
-  });
-
-  models.push({
-    name: 'Gemma 2 9B',
-    parameters: '9B',
-    quantization: '4-bit (Q4_K_M)',
-    speed: effectiveVram >= 8 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'slow'),
-    canRun: effectiveVram >= 8 || hardware.ramGB >= 16,
-    notes: t('calc.models.gemma2'),
-  });
-
-  models.push({
-    name: 'DeepSeek R1 (Distill 8B)',
-    parameters: '8B',
-    quantization: '4-bit (Q4_K_M)',
-    speed: effectiveVram >= 6 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'slow'),
-    canRun: effectiveVram >= 6 || hardware.ramGB >= 16,
-    notes: t('calc.models.deepseek_r1'),
-  });
-
-  models.push({
-    name: 'Qwen 2.5 14B / DeepSeek Coder V2 Lite',
-    parameters: '14B-16B',
-    quantization: '4-bit (Q4_K_M)',
-    speed: effectiveVram >= 12 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'unusable'),
-    canRun: effectiveVram >= 12 || hardware.ramGB >= 24,
-    notes: effectiveVram >= 12 ? t('calc.models.qwen.gpu') : t('calc.models.qwen.cpu'),
-  });
-
-  models.push({
-    name: 'Llama 3.3 70B',
-    parameters: '70B',
-    quantization: '4-bit (Q4_K_M)',
-    speed: effectiveVram >= 40 ? 'fast' : (effectiveVram >= 24 ? 'acceptable' : 'unusable'),
-    canRun: effectiveVram >= 24 || hardware.ramGB >= 64,
-    notes: effectiveVram >= 40 ? t('calc.models.llama3_70b.gpu') : t('calc.models.llama3_70b.cpu'),
-  });
-
-  // Software Recommendations
-  const softwareRecommendations: SoftwareRecommendation[] = [];
+function getSoftwareRecommendations(hardware: HardwareProfile, usage: UsageProfile): SoftwareRecommendation[] {
   if (hardware.os === 'macOS') {
-     softwareRecommendations.push({ name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Excelente interfaz gráfica, muy optimizada para Apple Silicon (Metal).' });
-     softwareRecommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'La forma más fácil de correr modelos desde la terminal o integrar con otras apps.' });
-  } else if (hardware.os === 'Windows') {
-     softwareRecommendations.push({ name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Interfaz gráfica fácil de usar, permite descargar modelos GGUF directamente.' });
-     if (hardware.gpuMaker === 'NVIDIA') {
-         softwareRecommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'Ideal para terminal y conectar con editores de código.' });
-     }
-  } else {
-     softwareRecommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'El estándar de facto para Linux. Fácil instalación por script.' });
-     if (usage.frequency === 'production' || usage.frequency === 'heavy') {
-         softwareRecommendations.push({ name: 'vLLM', url: 'https://github.com/vllm-project/vllm', description: 'Motor de inferencia de alto rendimiento, ideal para servidores.' });
-     }
+    return [
+      { name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Interfaz grafica optimizada para Apple Silicon con soporte Metal.' },
+      { name: 'Ollama', url: 'https://ollama.com', description: 'Forma simple de correr modelos desde terminal e integrarlos con otras apps.' },
+    ];
   }
 
-  // Economics
-  const monthlyApiCost = estimateApiCostMonthly(usage);
-  const hardwareAmortizationMonthly = (hardware.devicePriceUsd || 0) / 24; // spread over 2 years
-  
-  // Electricity: based on user config per kWh
-  // Desktop GPU might draw 300W during inference. 
-  // Let's assume active inference is 1/4 of usage hours.
-  const inferenceHoursPerDay = usage.hoursPerDay * 0.25; 
-  const kW = hardware.gpuMaker === 'NVIDIA' ? 0.3 : 0.05; // Mac is very efficient
-  const electricityCostMonthly = inferenceHoursPerDay * kW * 30 * usage.electricityCostPerKwh;
+  if (hardware.os === 'Windows') {
+    const recommendations: SoftwareRecommendation[] = [
+      { name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Interfaz grafica facil de usar para descargar y probar modelos GGUF.' },
+    ];
 
+    if (hardware.gpuMaker === 'NVIDIA') {
+      recommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'Ideal para terminal, flujos locales y editores de codigo.' });
+    }
+
+    return recommendations;
+  }
+
+  const recommendations: SoftwareRecommendation[] = [
+    { name: 'Ollama', url: 'https://ollama.com', description: 'Opcion simple y popular para Linux, desarrollo local y prototipos.' },
+  ];
+
+  if (usage.frequency === 'production' || usage.frequency === 'heavy') {
+    recommendations.push({ name: 'vLLM', url: 'https://github.com/vllm-project/vllm', description: 'Motor de inferencia de alto rendimiento para servidores y cargas concurrentes.' });
+  }
+
+  return recommendations;
+}
+
+export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t: (key: string) => string): Diagnosis {
+  const effectiveVram = getEffectiveVramGB(hardware);
+  const recommendedModels = MODEL_CATALOG.map((model) => evaluateCatalogEntry(model, effectiveVram, hardware.ramGB, t));
+  const canRunLocal = effectiveVram >= 6 || hardware.ramGB >= 16;
+  const usefulLocalModels = recommendedModels.filter((model) => model.canRun && model.speed !== 'unusable');
+  const hasUsefulLocalOption = canRunLocal && usefulLocalModels.length > 0;
+
+  const monthlyApiCost = estimateApiCostMonthly(usage);
+  const hardwareAmortizationMonthly = (hardware.devicePriceUsd || 0) / 24;
+  const inferenceHoursPerDay = usage.hoursPerDay * 0.25;
+  const kW = hardware.gpuMaker === 'NVIDIA' ? 0.3 : hardware.gpuMaker === 'Apple' ? 0.05 : 0.12;
+  const electricityCostMonthly = inferenceHoursPerDay * kW * 30 * usage.electricityCostPerKwh;
   const totalLocalMonthly = hardwareAmortizationMonthly + electricityCostMonthly;
 
   let breakevenMonths = -1;
   if (monthlyApiCost > electricityCostMonthly) {
-     breakevenMonths = hardware.devicePriceUsd / (monthlyApiCost - electricityCostMonthly);
+    breakevenMonths = hardware.devicePriceUsd / (monthlyApiCost - electricityCostMonthly);
   }
 
   let verdict: EconomicAnalysis['verdict'] = 'api';
   let verdictMessage = '';
+  const localIsCheaperMonthly = monthlyApiCost > totalLocalMonthly;
+  const quickBreakeven = breakevenMonths > 0 && breakevenMonths <= 12;
+  const mediumBreakeven = breakevenMonths > 12 && breakevenMonths <= 24;
+  const likelyNeedsCloudToo = usage.frequency === 'production' || usage.modelSizePreference === 'large' || usage.goal === 'agents';
 
   if (usage.needsPrivacy || usage.offlineRequired) {
     verdict = 'local';
     verdictMessage = t('calc.verdict.mandatory');
-  } else if (monthlyApiCost > totalLocalMonthly) {
-    verdict = 'local';
-    verdictMessage = t('calc.verdict.local_hours');
-  } else if (breakevenMonths > 0 && breakevenMonths <= 12) {
-    verdict = 'local';
-    verdictMessage = `${t('calc.verdict.local_breakeven')}${Math.ceil(breakevenMonths)}${t('calc.verdict.local_breakeven_months')}`;
+  } else if (!hasUsefulLocalOption) {
+    verdict = 'api';
+    verdictMessage = t('calc.verdict.api_hardware_limit');
+  } else if (localIsCheaperMonthly || quickBreakeven) {
+    verdict = likelyNeedsCloudToo ? 'hybrid' : 'local';
+    verdictMessage = verdict === 'hybrid'
+      ? t('calc.verdict.hybrid_scale')
+      : localIsCheaperMonthly
+        ? t('calc.verdict.local_hours')
+        : `${t('calc.verdict.local_breakeven')}${Math.ceil(breakevenMonths)}${t('calc.verdict.local_breakeven_months')}`;
+  } else if (mediumBreakeven || likelyNeedsCloudToo || usage.frequency === 'daily') {
+    verdict = 'hybrid';
+    verdictMessage = t('calc.verdict.hybrid_balanced');
   } else {
     verdict = 'api';
     verdictMessage = t('calc.verdict.api_cheaper');
   }
 
-  const costDataOverTime = Array.from({length: 12}, (_, i) => ({
+  const costDataOverTime = Array.from({ length: 12 }, (_, i) => ({
     month: i + 1,
     apiCost: monthlyApiCost * (i + 1),
-    localCost: hardware.devicePriceUsd + (electricityCostMonthly * (i + 1))
+    localCost: hardware.devicePriceUsd + (electricityCostMonthly * (i + 1)),
   }));
 
   let mainLimitation = null;
@@ -181,9 +146,9 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
   }
 
   return {
-    canRunLocal: effectiveVram >= 6 || hardware.ramGB >= 16,
+    canRunLocal,
     mainLimitation,
-    recommendedModels: models,
+    recommendedModels,
     economics: {
       monthlyApiCost,
       hardwareAmortizationMonthly,
@@ -194,7 +159,17 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
       verdictMessage,
       costDataOverTime,
     },
-    overallSummary: verdict === 'local' ? t('results.verdict.local') : t('results.verdict.api'),
-    softwareRecommendations,
+    overallSummary: verdict === 'local'
+      ? t('results.verdict.local')
+      : verdict === 'hybrid'
+        ? t('results.verdict.hybrid')
+        : t('results.verdict.api'),
+    softwareRecommendations: getSoftwareRecommendations(hardware, usage),
+    assumptions: [
+      t('calc.assumption.tokens'),
+      t('calc.assumption.hardware'),
+      t('calc.assumption.energy'),
+      t('calc.assumption.models'),
+    ],
   };
 }

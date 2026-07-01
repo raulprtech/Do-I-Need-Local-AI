@@ -58,4 +58,5 @@ export interface Diagnosis {
   economics: EconomicAnalysis;
   overallSummary: string;
   softwareRecommendations: SoftwareRecommendation[];
+  assumptions: string[];
 }

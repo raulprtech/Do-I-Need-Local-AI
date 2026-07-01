@@ -1,6 +1,6 @@
 import { Diagnosis } from '../lib/types';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, GitBranch, XCircle } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
 
 export function ResultsDashboard({ diagnosis }: Props) {
   const { t } = useLanguage();
-  const { canRunLocal, mainLimitation, recommendedModels, economics, overallSummary } = diagnosis;
+  const { mainLimitation, recommendedModels, economics, overallSummary } = diagnosis;
 
   return (
     <div className="flex min-w-0 flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -18,10 +18,10 @@ export function ResultsDashboard({ diagnosis }: Props) {
           <h3 className="micro-label mb-4">{t('results.verdict.title')}</h3>
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <span className="flex items-center gap-3 font-mono text-3xl font-medium tracking-normal text-[#dbeafe] md:text-4xl">
-              {canRunLocal ? <CheckCircle2 className="h-8 w-8 shrink-0 text-[#7dd3fc]" /> : <XCircle className="h-8 w-8 shrink-0 text-[#f3a6a6]" />}
+              {economics.verdict === 'local' ? <CheckCircle2 className="h-8 w-8 shrink-0 text-[#7dd3fc]" /> : economics.verdict === 'hybrid' ? <GitBranch className="h-8 w-8 shrink-0 text-[#7dd3fc]" /> : <XCircle className="h-8 w-8 shrink-0 text-[#f3a6a6]" />}
               {overallSummary}
             </span>
-            {canRunLocal && economics.breakevenMonths > 0 && (
+            {economics.verdict !== 'api' && economics.breakevenMonths > 0 && (
               <span className="self-start rounded-full bg-[#7dd3fc] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#06111f] md:self-auto">
                 {t('results.economics.breakeven')}: {Math.ceil(economics.breakevenMonths)} {t('results.economics.months')}
               </span>
@@ -145,6 +145,22 @@ export function ResultsDashboard({ diagnosis }: Props) {
           </div>
         </div>
       </div>
+
+      {diagnosis.assumptions.length > 0 && (
+        <section className="panel-card">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">{t('results.assumptions.title')}</h3>
+            <span className="rounded-full border border-[#7dd3fc]/40 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#7dd3fc]">Beta</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {diagnosis.assumptions.map((assumption) => (
+              <div key={assumption} className="rounded-[14px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 px-4 py-3 text-sm leading-6 text-[#b7cbe2]">
+                {assumption}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {diagnosis.softwareRecommendations && diagnosis.softwareRecommendations.length > 0 && (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
