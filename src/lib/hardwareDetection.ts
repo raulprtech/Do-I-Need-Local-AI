@@ -1,4 +1,4 @@
-﻿import { GPUMaker, HardwareProfile, OS } from './types';
+import { GPUMaker, HardwareProfile, OS } from './types';
 
 interface GpuSpec {
   vramGB: number;
@@ -7,6 +7,12 @@ interface GpuSpec {
 interface WebGpuInfo {
   label: string | null;
   maxBufferGB: number | null;
+  powerPreference: 'high-performance' | 'default';
+}
+
+interface GpuCandidate {
+  label: string;
+  source: 'webgl-high' | 'webgl-default' | 'webgpu-high' | 'webgpu-default';
 }
 
 const GPU_SPECS: Record<string, GpuSpec> = {
@@ -134,10 +140,10 @@ function getAppleMemoryGB(label: string): number | null {
   return key ? APPLE_UNIFIED_MEMORY_GB[key] : null;
 }
 
-async function getWebGpuInfo(): Promise<WebGpuInfo> {
-  const gpu = (navigator as Navigator & { gpu?: { requestAdapter?: () => Promise<unknown> } }).gpu;
-  const adapter = await gpu?.requestAdapter?.();
-  if (!adapter) return { label: null, maxBufferGB: null };
+async function getWebGpuInfo(powerPreference: 'high-performance' | 'default'): Promise<WebGpuInfo> {
+  const gpu = (navigator as Navigator & { gpu?: { requestAdapter?: (options?: { powerPreference?: 'high-performance' | 'low-power' }) => Promise<unknown> } }).gpu;
+  const adapter = await gpu?.requestAdapter?.(powerPreference === 'high-performance' ? { powerPreference } : undefined);
+  if (!adapter) return { label: null, maxBufferGB: null, powerPreference };
 
   const maybeAdapter = adapter as {
     requestAdapterInfo?: () => Promise<{ vendor?: string; architecture?: string; device?: string; description?: string }>;
@@ -149,12 +155,15 @@ async function getWebGpuInfo(): Promise<WebGpuInfo> {
   const maxBufferSize = maybeAdapter.limits?.maxBufferSize;
   const maxBufferGB = typeof maxBufferSize === 'number' ? maxBufferSize / 1024 / 1024 / 1024 : null;
 
-  return { label, maxBufferGB };
+  return { label, maxBufferGB, powerPreference };
 }
 
-function getWebGlRenderer(): string | null {
+function getWebGlRenderer(powerPreference: 'high-performance' | 'default'): string | null {
   const canvas = document.createElement('canvas');
-  const gl = (canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+  const attributes = powerPreference === 'high-performance'
+    ? ({ powerPreference: 'high-performance' } as WebGLContextAttributes)
+    : undefined;
+  const gl = (canvas.getContext('webgl2', attributes) || canvas.getContext('webgl', attributes) || canvas.getContext('experimental-webgl', attributes)) as WebGLRenderingContext | null;
   if (!gl) return null;
 
   const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
@@ -193,17 +202,61 @@ function estimateRamGB(os: OS, label: string, current: HardwareProfile): number 
   return Math.max(current.ramGB || 0, deviceMemory ?? 0, appleMemory ?? 0, os === 'macOS' ? 8 : 4);
 }
 
+function isIntegratedGpu(label: string, maker: GPUMaker): boolean {
+  const value = label.toLowerCase();
+  return maker === 'Intel'
+    || value.includes('iris')
+    || value.includes('uhd')
+    || value.includes('integrated')
+    || value.includes('radeon graphics');
+}
+
+function candidateScore(candidate: GpuCandidate, os: OS): number {
+  const label = `${candidate.label} ${cleanRendererLabel(candidate.label)}`;
+  const maker = inferGpuMaker(label, os);
+  const matched = findGpuSpec(label);
+  let score = 0;
+
+  if (candidate.source === 'webgl-high' || candidate.source === 'webgpu-high') score += 25;
+  if (matched) score += 100;
+  if (maker === 'NVIDIA' || maker === 'AMD') score += 45;
+  if (maker === 'Apple') score += 30;
+  if (maker === 'Intel') score -= 30;
+  if (isIntegratedGpu(label, maker)) score -= 35;
+
+  return score;
+}
+
+function pickBestCandidate(candidates: GpuCandidate[], os: OS): GpuCandidate | null {
+  const unique = candidates.filter((candidate, index, all) => (
+    candidate.label.trim()
+    && all.findIndex((item) => item.label.trim() === candidate.label.trim()) === index
+  ));
+
+  return unique.sort((a, b) => candidateScore(b, os) - candidateScore(a, os))[0] ?? null;
+}
+
 export async function detectHardwareProfile(current: HardwareProfile): Promise<Partial<HardwareProfile>> {
   const os = detectOs();
-  const webGpu = await getWebGpuInfo().catch(() => ({ label: null, maxBufferGB: null }));
-  const webGlRenderer = getWebGlRenderer();
-  const rawLabel = webGlRenderer ?? webGpu.label ?? current.gpuName;
+  const [webGpuHigh, webGpuDefault] = await Promise.all([
+    getWebGpuInfo('high-performance').catch(() => ({ label: null, maxBufferGB: null, powerPreference: 'high-performance' as const })),
+    getWebGpuInfo('default').catch(() => ({ label: null, maxBufferGB: null, powerPreference: 'default' as const })),
+  ]);
+  const candidates: GpuCandidate[] = [
+    { label: getWebGlRenderer('high-performance') ?? '', source: 'webgl-high' as const },
+    { label: webGpuHigh.label ?? '', source: 'webgpu-high' as const },
+    { label: getWebGlRenderer('default') ?? '', source: 'webgl-default' as const },
+    { label: webGpuDefault.label ?? '', source: 'webgpu-default' as const },
+  ].filter((candidate) => candidate.label.trim());
+  const bestCandidate = pickBestCandidate(candidates, os);
+  const rawLabel = bestCandidate?.label ?? current.gpuName;
   const cleanLabel = cleanRendererLabel(rawLabel);
-  const maker = inferGpuMaker(`${rawLabel} ${cleanLabel} ${webGpu.label ?? ''}`, os);
-  const matched = findGpuSpec(`${rawLabel} ${cleanLabel}`);
+  const combinedLabel = `${rawLabel} ${cleanLabel} ${webGpuHigh.label ?? ''} ${webGpuDefault.label ?? ''}`;
+  const maker = inferGpuMaker(combinedLabel, os);
+  const matched = findGpuSpec(combinedLabel);
   const gpuName = matched?.name ? matched.name.replace(/\bTI\b/g, 'Ti') : cleanLabel;
-  const ramGB = estimateRamGB(os, `${rawLabel} ${cleanLabel}`, current);
-  const vramGB = estimateVramGB(`${rawLabel} ${cleanLabel}`, maker, os, webGpu, current);
+  const ramGB = estimateRamGB(os, combinedLabel, current);
+  const vramGB = estimateVramGB(combinedLabel, maker, os, webGpuHigh.maxBufferGB ? webGpuHigh : webGpuDefault, current);
 
   return {
     preset: 'custom',
