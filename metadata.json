@@ -1,0 +1,6 @@
+{
+  "name": "Do I Need Local AI",
+  "description": "Herramienta de decisión para evaluar si conviene correr modelos de IA localmente según hardware y uso.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
