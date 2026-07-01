@@ -26,6 +26,11 @@ const GPU_SPECS: Record<string, GpuSpec> = {
   'RTX 4060 TI 16GB': { vramGB: 16 },
   'RTX 4060 TI': { vramGB: 8 },
   'RTX 4060': { vramGB: 8 },
+  'RTX 4090 LAPTOP': { vramGB: 16 },
+  'RTX 4080 LAPTOP': { vramGB: 12 },
+  'RTX 4070 LAPTOP': { vramGB: 8 },
+  'RTX 4060 LAPTOP': { vramGB: 8 },
+  'RTX 4050 LAPTOP': { vramGB: 6 },
   'RTX 3090 TI': { vramGB: 24 },
   'RTX 3090': { vramGB: 24 },
   'RTX 3080 TI': { vramGB: 12 },
@@ -38,6 +43,12 @@ const GPU_SPECS: Record<string, GpuSpec> = {
   'RTX 3060': { vramGB: 12 },
   'RTX 3050 TI': { vramGB: 4 },
   'RTX 3050': { vramGB: 8 },
+  'RTX 3050 LAPTOP': { vramGB: 4 },
+  'RTX 3050 TI LAPTOP': { vramGB: 4 },
+  'RTX 3080 TI LAPTOP': { vramGB: 16 },
+  'RTX 3080 LAPTOP': { vramGB: 16 },
+  'RTX 3070 TI LAPTOP': { vramGB: 8 },
+  'RTX 3070 LAPTOP': { vramGB: 8 },
   'RTX 2080 TI': { vramGB: 11 },
   'RTX 2080': { vramGB: 8 },
   'RTX 2070': { vramGB: 8 },
@@ -166,6 +177,10 @@ function getWebGlRenderer(powerPreference: 'high-performance' | 'default'): stri
   const gl = (canvas.getContext('webgl2', attributes) || canvas.getContext('webgl', attributes) || canvas.getContext('experimental-webgl', attributes)) as WebGLRenderingContext | null;
   if (!gl) return null;
 
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.finish();
+
   const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
   if (debugInfo) {
     return gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) as string;
@@ -173,6 +188,15 @@ function getWebGlRenderer(powerPreference: 'high-performance' | 'default'): stri
 
   const renderer = gl.getParameter(gl.RENDERER) as string;
   return renderer && renderer !== 'WebKit WebGL' ? renderer : null;
+}
+
+function estimateVRAMFromWebGPU(maxBufferGB: number | null): number | null {
+  if (!maxBufferGB || maxBufferGB < 0.5) return null;
+  const rawEstimate = maxBufferGB * 2;
+  const commonSizes = [2, 3, 4, 6, 8, 10, 11, 12, 16, 20, 24, 32, 48, 64, 80, 128, 192];
+  return commonSizes.reduce((closest, size) => (
+    Math.abs(size - rawEstimate) < Math.abs(closest - rawEstimate) ? size : closest
+  ), commonSizes[0]);
 }
 
 function estimateVramGB(label: string, maker: GPUMaker, os: OS, webGpu: WebGpuInfo, current: HardwareProfile): number {
@@ -187,8 +211,9 @@ function estimateVramGB(label: string, maker: GPUMaker, os: OS, webGpu: WebGpuIn
     return Math.max(8, Math.round((deviceMemory ?? getAppleMemoryGB(label) ?? current.ramGB ?? 16) * 0.75));
   }
 
-  if (webGpu.maxBufferGB && webGpu.maxBufferGB >= 2) {
-    return Math.max(4, Math.round(webGpu.maxBufferGB));
+  const webGpuVRAM = estimateVRAMFromWebGPU(webGpu.maxBufferGB);
+  if (webGpuVRAM && (maker === 'NVIDIA' || maker === 'AMD' || maker === 'Intel')) {
+    return webGpuVRAM;
   }
 
   if (maker === 'NVIDIA' || maker === 'AMD') return current.vramGB || 8;

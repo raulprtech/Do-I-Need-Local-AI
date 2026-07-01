@@ -154,9 +154,9 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const isShared = Boolean(params.get('s'));
-    if (isShared || localStorage.getItem('auto_detected_v1')) return;
+    if (isShared || localStorage.getItem('auto_detected_v3')) return;
 
-    localStorage.setItem('auto_detected_v1', 'true');
+    localStorage.setItem('auto_detected_v3', 'true');
 
     detectCountryDefaults()
       .then((defaults) => {
