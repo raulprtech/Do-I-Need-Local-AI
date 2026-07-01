@@ -139,7 +139,7 @@ function inferGpuMaker(label: string, os: OS): GPUMaker {
 }
 
 function findGpuSpec(label: string): { name: string; spec: GpuSpec } | null {
-  const normalized = label.toUpperCase().replace(/GEFORCE\s+/g, '').replace(/AMD\s+/g, '').replace(/RADEON\s+/g, '').replace(/\s+/g, ' ');
+  const normalized = label.toUpperCase().replace(/GEFORCE\s+/g, '').replace(/AMD\s+/g, '').replace(/RADEON\s+/g, '').replace(/LAPTOP GPU/g, 'LAPTOP').replace(/MOBILE GPU/g, 'LAPTOP').replace(/\s+/g, ' ');
   const keys = Object.keys(GPU_SPECS).sort((a, b) => b.length - a.length);
   const key = keys.find((candidate) => normalized.includes(candidate));
   return key ? { name: key, spec: GPU_SPECS[key] } : null;
@@ -157,10 +157,16 @@ async function getWebGpuInfo(powerPreference: 'high-performance' | 'default'): P
   if (!adapter) return { label: null, maxBufferGB: null, powerPreference };
 
   const maybeAdapter = adapter as {
-    requestAdapterInfo?: () => Promise<{ vendor?: string; architecture?: string; device?: string; description?: string }>;
-    info?: { vendor?: string; architecture?: string; device?: string; description?: string };
+    requestAdapterInfo?: () => Promise<{ vendor?: string | number; architecture?: string; device?: string | number; description?: string }>;
+    requestDevice?: () => Promise<{ destroy?: () => void }>;
+    info?: { vendor?: string | number; architecture?: string; device?: string | number; description?: string };
     limits?: { maxBufferSize?: number };
   };
+
+  if (powerPreference === 'high-performance') {
+    await maybeAdapter.requestDevice?.().then((device) => device.destroy?.()).catch(() => undefined);
+  }
+
   const info = maybeAdapter.info ?? await maybeAdapter.requestAdapterInfo?.();
   const label = [info?.vendor, info?.architecture, info?.device, info?.description].filter(Boolean).join(' ').trim() || null;
   const maxBufferSize = maybeAdapter.limits?.maxBufferSize;
@@ -268,8 +274,8 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
     getWebGpuInfo('default').catch(() => ({ label: null, maxBufferGB: null, powerPreference: 'default' as const })),
   ]);
   const candidates: GpuCandidate[] = [
-    { label: getWebGlRenderer('high-performance') ?? '', source: 'webgl-high' as const },
     { label: webGpuHigh.label ?? '', source: 'webgpu-high' as const },
+    { label: getWebGlRenderer('high-performance') ?? '', source: 'webgl-high' as const },
     { label: getWebGlRenderer('default') ?? '', source: 'webgl-default' as const },
     { label: webGpuDefault.label ?? '', source: 'webgpu-default' as const },
   ].filter((candidate) => candidate.label.trim());
@@ -282,6 +288,17 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
   const gpuName = matched?.name ? matched.name.replace(/\bTI\b/g, 'Ti') : cleanLabel;
   const ramGB = estimateRamGB(os, combinedLabel, current);
   const vramGB = estimateVramGB(combinedLabel, maker, os, webGpuHigh.maxBufferGB ? webGpuHigh : webGpuDefault, current);
+
+  if (isIntegratedGpu(combinedLabel, maker) && (current.gpuMaker === 'NVIDIA' || current.gpuMaker === 'AMD') && current.vramGB > 0) {
+    return {
+      preset: current.preset || 'custom',
+      os,
+      gpuMaker: current.gpuMaker,
+      gpuName: current.gpuName,
+      vramGB: current.vramGB,
+      ramGB,
+    };
+  }
 
   return {
     preset: 'custom',
