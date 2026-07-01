@@ -22,6 +22,7 @@ export interface UsageProfile {
   needsPrivacy: boolean;
   offlineRequired: boolean;
   modelSizePreference: 'small' | 'medium' | 'large' | 'any';
+  electricityCostPerKwh: number;
 }
 
 export interface ModelCapability {
@@ -44,10 +45,17 @@ export interface EconomicAnalysis {
   costDataOverTime: { month: number; apiCost: number; localCost: number }[];
 }
 
+export interface SoftwareRecommendation {
+  name: string;
+  url: string;
+  description: string;
+}
+
 export interface Diagnosis {
   canRunLocal: boolean;
   mainLimitation: string | null;
   recommendedModels: ModelCapability[];
   economics: EconomicAnalysis;
   overallSummary: string;
+  softwareRecommendations: SoftwareRecommendation[];
 }

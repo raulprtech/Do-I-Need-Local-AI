@@ -2,11 +2,12 @@ import { HardwareProfile, UsageProfile, Diagnosis, ModelCapability, EconomicAnal
 
 export const HARDWARE_PRESETS: Record<string, Partial<HardwareProfile>> = {
   'custom': { preset: 'custom' },
-  'rtx3060': { preset: 'rtx3060', gpuMaker: 'NVIDIA', gpuName: 'RTX 3060', vramGB: 12, ramGB: 16, devicePriceUsd: 1000 },
-  'rtx4090': { preset: 'rtx4090', gpuMaker: 'NVIDIA', gpuName: 'RTX 4090', vramGB: 24, ramGB: 32, devicePriceUsd: 3000 },
-  'm2_16gb': { preset: 'm2_16gb', os: 'macOS', gpuMaker: 'Apple', gpuName: 'M2', vramGB: 12, ramGB: 16, devicePriceUsd: 1200 },
-  'm3max_64gb': { preset: 'm3max_64gb', os: 'macOS', gpuMaker: 'Apple', gpuName: 'M3 Max', vramGB: 48, ramGB: 64, devicePriceUsd: 4000 },
-  'no_gpu': { preset: 'no_gpu', gpuMaker: 'None', gpuName: 'Integrated', vramGB: 0, ramGB: 16, devicePriceUsd: 800 },
+  'rtx3060': { preset: 'rtx3060', gpuMaker: 'NVIDIA', gpuName: 'RTX 3060', vramGB: 12, ramGB: 16, devicePriceUsd: 850 },
+  'rtx4070tisuper': { preset: 'rtx4070tisuper', gpuMaker: 'NVIDIA', gpuName: 'RTX 4070 Ti Super', vramGB: 16, ramGB: 32, devicePriceUsd: 1600 },
+  'rtx4090': { preset: 'rtx4090', gpuMaker: 'NVIDIA', gpuName: 'RTX 4090', vramGB: 24, ramGB: 64, devicePriceUsd: 3200 },
+  'macmini_m4_16gb': { preset: 'macmini_m4_16gb', os: 'macOS', gpuMaker: 'Apple', gpuName: 'M4', vramGB: 12, ramGB: 16, devicePriceUsd: 799 },
+  'm3max_64gb': { preset: 'm3max_64gb', os: 'macOS', gpuMaker: 'Apple', gpuName: 'M3 Max', vramGB: 48, ramGB: 64, devicePriceUsd: 3999 },
+  'no_gpu': { preset: 'no_gpu', gpuMaker: 'None', gpuName: 'Integrated', vramGB: 0, ramGB: 16, devicePriceUsd: 600 },
 };
 
 function estimateApiCostMonthly(usage: UsageProfile): number {
@@ -29,7 +30,7 @@ function estimateApiCostMonthly(usage: UsageProfile): number {
   return (tokensPerMonth / 1000000) * ratePerMillion;
 }
 
-export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile): Diagnosis {
+export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t: (key: string) => string): Diagnosis {
   let effectiveVram = hardware.vramGB;
   
   // Apple Silicon shares RAM and VRAM. Typically up to ~75% of RAM can be used as VRAM.
@@ -46,42 +47,86 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile): 
   // 70B Q4: ~40 GB VRAM
 
   models.push({
+    name: 'Phi-3 Mini',
+    parameters: '3.8B',
+    quantization: '4-bit (Q4_K_M)',
+    speed: effectiveVram >= 4 ? 'fast' : (hardware.ramGB >= 8 ? 'acceptable' : 'slow'),
+    canRun: effectiveVram >= 4 || hardware.ramGB >= 8,
+    notes: t('calc.models.phi3'),
+  });
+
+  models.push({
     name: 'Llama 3 8B / Mistral 7B',
     parameters: '8B',
     quantization: '4-bit (Q4_K_M)',
     speed: effectiveVram >= 6 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'slow'),
     canRun: effectiveVram >= 6 || hardware.ramGB >= 16,
-    notes: effectiveVram >= 6 ? 'Corre 100% en GPU, muy rápido.' : 'Correrá usando RAM (CPU), será más lento.',
+    notes: effectiveVram >= 6 ? t('calc.models.llama3_8b.gpu') : t('calc.models.llama3_8b.cpu'),
   });
 
   models.push({
-    name: 'Qwen 2.5 14B',
-    parameters: '14B',
+    name: 'Gemma 2 9B',
+    parameters: '9B',
     quantization: '4-bit (Q4_K_M)',
-    speed: effectiveVram >= 10 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'unusable'),
-    canRun: effectiveVram >= 10 || hardware.ramGB >= 24,
-    notes: effectiveVram >= 10 ? 'Excelente rendimiento en GPU.' : 'Requiere offload parcial a RAM.',
+    speed: effectiveVram >= 8 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'slow'),
+    canRun: effectiveVram >= 8 || hardware.ramGB >= 16,
+    notes: t('calc.models.gemma2'),
   });
 
   models.push({
-    name: 'Llama 3 70B',
+    name: 'DeepSeek R1 (Distill 8B)',
+    parameters: '8B',
+    quantization: '4-bit (Q4_K_M)',
+    speed: effectiveVram >= 6 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'slow'),
+    canRun: effectiveVram >= 6 || hardware.ramGB >= 16,
+    notes: t('calc.models.deepseek_r1'),
+  });
+
+  models.push({
+    name: 'Qwen 2.5 14B / DeepSeek Coder V2 Lite',
+    parameters: '14B-16B',
+    quantization: '4-bit (Q4_K_M)',
+    speed: effectiveVram >= 12 ? 'fast' : (hardware.ramGB >= 16 ? 'acceptable' : 'unusable'),
+    canRun: effectiveVram >= 12 || hardware.ramGB >= 24,
+    notes: effectiveVram >= 12 ? t('calc.models.qwen.gpu') : t('calc.models.qwen.cpu'),
+  });
+
+  models.push({
+    name: 'Llama 3.3 70B',
     parameters: '70B',
     quantization: '4-bit (Q4_K_M)',
     speed: effectiveVram >= 40 ? 'fast' : (effectiveVram >= 24 ? 'acceptable' : 'unusable'),
     canRun: effectiveVram >= 24 || hardware.ramGB >= 64,
-    notes: effectiveVram >= 40 ? 'Corre completo en VRAM.' : 'Correrá pero muy lento y con contexto limitado.',
+    notes: effectiveVram >= 40 ? t('calc.models.llama3_70b.gpu') : t('calc.models.llama3_70b.cpu'),
   });
+
+  // Software Recommendations
+  const softwareRecommendations: typeof models[0] | any[] = []; // We will map to SoftwareRecommendation
+  if (hardware.os === 'macOS') {
+     softwareRecommendations.push({ name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Excelente interfaz gráfica, muy optimizada para Apple Silicon (Metal).' });
+     softwareRecommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'La forma más fácil de correr modelos desde la terminal o integrar con otras apps.' });
+  } else if (hardware.os === 'Windows') {
+     softwareRecommendations.push({ name: 'LM Studio', url: 'https://lmstudio.ai', description: 'Interfaz gráfica fácil de usar, permite descargar modelos GGUF directamente.' });
+     if (hardware.gpuMaker === 'NVIDIA') {
+         softwareRecommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'Ideal para terminal y conectar con editores de código.' });
+     }
+  } else {
+     softwareRecommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'El estándar de facto para Linux. Fácil instalación por script.' });
+     if (usage.frequency === 'production' || usage.frequency === 'heavy') {
+         softwareRecommendations.push({ name: 'vLLM', url: 'https://github.com/vllm-project/vllm', description: 'Motor de inferencia de alto rendimiento, ideal para servidores.' });
+     }
+  }
 
   // Economics
   const monthlyApiCost = estimateApiCostMonthly(usage);
   const hardwareAmortizationMonthly = (hardware.devicePriceUsd || 0) / 24; // spread over 2 years
   
-  // Electricity: assuming 0.20 USD per kWh
+  // Electricity: based on user config per kWh
   // Desktop GPU might draw 300W during inference. 
   // Let's assume active inference is 1/4 of usage hours.
   const inferenceHoursPerDay = usage.hoursPerDay * 0.25; 
   const kW = hardware.gpuMaker === 'NVIDIA' ? 0.3 : 0.05; // Mac is very efficient
-  const electricityCostMonthly = inferenceHoursPerDay * kW * 30 * 0.20;
+  const electricityCostMonthly = inferenceHoursPerDay * kW * 30 * usage.electricityCostPerKwh;
 
   const totalLocalMonthly = hardwareAmortizationMonthly + electricityCostMonthly;
 
@@ -97,16 +142,16 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile): 
 
   if (usage.needsPrivacy || usage.offlineRequired) {
     verdict = 'local';
-    verdictMessage = 'Debido a la necesidad estricta de privacidad u offline, la vía local es mandatoria, independientemente del costo.';
+    verdictMessage = t('calc.verdict.mandatory');
   } else if (monthlyApiCost > totalLocalMonthly) {
     verdict = 'local';
-    verdictMessage = `Local te conviene porque usas IA ~${hoursPerMonth} horas al mes, y el gasto en API supera la amortización del hardware.`;
+    verdictMessage = t('calc.verdict.local_hours');
   } else if (breakevenMonths > 0 && breakevenMonths <= 12) {
     verdict = 'local';
-    verdictMessage = `Con este perfil de uso, recuperarás la inversión en hardware en ${Math.ceil(breakevenMonths)} meses. Local te conviene a medio plazo.`;
+    verdictMessage = `${t('calc.verdict.local_breakeven')}${Math.ceil(breakevenMonths)}${t('calc.verdict.local_breakeven_months')}`;
   } else {
     verdict = 'api';
-    verdictMessage = 'Para este perfil, pagar API sigue siendo más barato durante los próximos 12 meses frente a comprar o mantener hardware.';
+    verdictMessage = t('calc.verdict.api_cheaper');
   }
 
   const costDataOverTime = Array.from({length: 12}, (_, i) => ({
@@ -117,9 +162,9 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile): 
 
   let mainLimitation = null;
   if (effectiveVram < 6 && hardware.ramGB < 16) {
-    mainLimitation = 'Poca memoria (VRAM/RAM) limita gravemente el uso de IA local.';
+    mainLimitation = t('calc.limit.memory');
   } else if (hardware.gpuMaker === 'None' || hardware.gpuMaker === 'Intel') {
-    mainLimitation = 'Falta GPU dedicada (NVIDIA o Apple Silicon) afectará la velocidad.';
+    mainLimitation = t('calc.limit.nogpu');
   }
 
   return {
@@ -136,6 +181,7 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile): 
       verdictMessage,
       costDataOverTime,
     },
-    overallSummary: verdict === 'local' ? 'Local te conviene' : 'Pagar API sigue siendo más barato',
+    overallSummary: verdict === 'local' ? t('results.verdict.local') : t('results.verdict.api'),
+    softwareRecommendations,
   };
 }
