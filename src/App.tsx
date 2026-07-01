@@ -92,8 +92,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen px-4 py-6 md:px-8 md:py-10 font-sans">
-      <div className="dashboard-shell mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-[1440px] flex-col overflow-hidden rounded-[28px]">
+    <div className="min-h-screen bg-[#111311] font-sans">
+      <div className="dashboard-shell flex min-h-screen w-full flex-col overflow-hidden">
         <Header onShare={handleShare} shared={shared} />
 
         <main className="flex-1 w-full px-5 pb-6 pt-5 md:px-10 md:pb-10 md:pt-8">
