@@ -55,6 +55,23 @@ El catalogo inicial cubre modelos representativos para decisiones practicas de I
 
 Las estimaciones usan reglas aproximadas para GGUF/llama.cpp y cuantizacion Q4. Son una guia inicial, no un benchmark exacto.
 
+
+## Dataset
+
+El proyecto ahora incluye una primera semilla de dataset en `dataset/`, pensada para migrarse despues a [`raulprtech/ai-infra-dataset`](https://github.com/raulprtech/ai-infra-dataset).
+
+La idea es mantener GitHub como fuente publica auditable y usar Supabase como capa operacional para formularios, cola de revision, roles, dashboards y datos privados Enterprise.
+
+```txt
+Supabase = flujo de trabajo y producto
+GitHub = dataset publico versionado
+```
+
+Puedes validar la estructura inicial con:
+
+```bash
+npm run dataset:validate
+```
 ## Tech Stack
 
 | Tecnologia | Uso |
@@ -92,6 +109,7 @@ Por defecto, Vite levanta la app en `http://localhost:3000`.
 | `npm run preview` | Previsualiza el build |
 | `npm run lint` | Ejecuta TypeScript sin emitir archivos |
 | `npm run clean` | Limpia artefactos generados |
+| `npm run dataset:validate` | Valida los archivos JSON del dataset |
 
 ## Project Structure
 
@@ -121,3 +139,4 @@ src/
 ## Inspiration
 
 Este proyecto parte de la idea de decision rapida de [CanIRun.ai](https://github.com/midudev/canirun.ai): abrir una herramienta, entender tu hardware y obtener una respuesta accionable sin instalar nada. La direccion visual del dashboard toma inspiracion de [Smart Energy Dashboard Concept](https://dribbble.com/shots/25108413-Smart-Energy-Dashboard-Concept) de Bohdan Ratiiev para Zajno.
+

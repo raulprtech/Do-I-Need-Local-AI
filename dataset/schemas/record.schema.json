@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/raulprtech/ai-infra-dataset/schemas/record.schema.json",
+  "title": "Base dataset record",
+  "type": "object",
+  "required": ["id", "name", "confidence", "lastCheckedAt", "sources"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "confidence": { "type": "string", "enum": ["official", "verified", "community", "estimated", "deprecated"] },
+    "lastCheckedAt": { "type": "string", "format": "date" },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["type", "url"],
+        "properties": {
+          "type": { "type": "string" },
+          "url": { "type": "string" }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
