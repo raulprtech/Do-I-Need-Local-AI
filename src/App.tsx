@@ -3,14 +3,13 @@ import Header from './components/Header';
 import { InputForms } from './components/InputForms';
 import { ResultsDashboard } from './components/ResultsDashboard';
 import { ComparisonPage } from './components/ComparisonPage';
-import { ApiUsagePage } from './components/ApiUsagePage';
 import { evaluateSystem } from './lib/calculator';
 import { detectHardwareProfile } from './lib/hardwareDetection';
 import { DEFAULT_COUNTRY, detectCountryDefaults } from './lib/locale';
 import { HardwareProfile, UsageProfile } from './lib/types';
 import { useLanguage } from './lib/i18n';
 
-type View = 'dashboard' | 'compare' | 'api-usage' | 'why' | 'how';
+type View = 'dashboard' | 'compare' | 'why' | 'how';
 
 function encodeState(hardware: HardwareProfile, usage: UsageProfile) {
   try {
@@ -247,7 +246,6 @@ export default function App() {
             </>
           )}
           {view === 'compare' && <ComparisonPage hardware={hardware} usage={usage} />}
-          {view === 'api-usage' && <ApiUsagePage hardware={hardware} usage={usage} />}
           {view === 'why' && <WhyPage />}
           {view === 'how' && <HowPage />}
         </main>

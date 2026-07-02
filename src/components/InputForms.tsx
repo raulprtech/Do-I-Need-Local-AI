@@ -4,6 +4,7 @@ import { HARDWARE_PRESETS } from '../lib/calculator';
 import { detectHardwareProfile } from '../lib/hardwareDetection';
 import { CURRENCY_OPTIONS, detectCountryDefaults } from '../lib/locale';
 import { useLanguage } from '../lib/i18n';
+import { ApiUsageImportPanel } from './ApiUsagePage';
 
 interface Props {
   hardware: HardwareProfile;
@@ -286,6 +287,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
             </div>
           </div>
 
+          <ApiUsageImportPanel hardware={hardware} usage={usage} />
         </div>
       </section>
     </div>
