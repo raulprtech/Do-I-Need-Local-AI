@@ -39,6 +39,48 @@ export interface UsageProfile {
   modelMix: UsageModelSelection[];
 }
 
+export interface ModelLink {
+  label: string;
+  url: string;
+}
+
+export interface ModelInstallCommand {
+  label: string;
+  command: string;
+}
+
+export interface ModelSpec {
+  label: string;
+  value: string;
+}
+
+export interface ModelBenchmarkSummary {
+  label: string;
+  value: string;
+  note?: string;
+}
+
+export interface ModelCatalogEntry {
+  name: string;
+  parameters: string;
+  quantization: string;
+  minFastVramGB: number;
+  minGpuVramGB: number;
+  minCpuRamGB: number;
+  noteKey: string;
+  noteGpuKey?: string;
+  noteCpuKey?: string;
+  idealUseCases: UsageGoal[];
+  intelligenceScore: number;
+  description: string;
+  license: string;
+  links: ModelLink[];
+  quantizationOptions: string[];
+  installCommands: ModelInstallCommand[];
+  specs: ModelSpec[];
+  benchmarkSummary: ModelBenchmarkSummary[];
+}
+
 export interface ModelCapability {
   name: string;
   parameters: string; // e.g. "7B", "70B"
@@ -49,6 +91,13 @@ export interface ModelCapability {
   idealUseCases: UsageGoal[];
   idealUseCaseLabels: string;
   intelligenceScore: number;
+  description: string;
+  license: string;
+  links: ModelLink[];
+  quantizationOptions: string[];
+  installCommands: ModelInstallCommand[];
+  specs: ModelSpec[];
+  benchmarkSummary: ModelBenchmarkSummary[];
 }
 
 export interface EconomicAnalysis {

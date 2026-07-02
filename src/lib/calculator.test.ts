@@ -63,6 +63,15 @@ const productionLarge = evaluateSystem(
 );
 assert.equal(productionLarge.economics.verdict, 'hybrid');
 assert.ok(productionLarge.recommendedModels.some((model) => model.canRun));
+assert.ok(productionLarge.softwareRecommendations.some((software) => software.name === 'vLLM'));
+
+const heavyIntegrated = evaluateSystem(
+  { ...baseHardware, gpuMaker: 'Intel', gpuName: 'Integrated', vramGB: 0, ramGB: 16 },
+  { ...baseUsage, frequency: 'heavy', goal: 'agents', hoursPerDay: 6 },
+  t,
+);
+assert.ok(!heavyIntegrated.softwareRecommendations.some((software) => software.name === 'vLLM'));
+
 
 const advancedMix = evaluateSystem(
   baseHardware,
