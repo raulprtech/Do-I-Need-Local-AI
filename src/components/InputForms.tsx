@@ -1,10 +1,11 @@
 import React from 'react';
-import { HardwareProfile, UsageProfile, GPUMaker, UsageGoal, UsageFrequency } from '../lib/types';
-import { HARDWARE_PRESETS } from '../lib/calculator';
+import { HardwareProfile, UsageProfile, GPUMaker, UsageGoal, UsageFrequency, CloudModelId, UsageModelSelection } from '../lib/types';
+import { CLOUD_MODEL_PROFILES, HARDWARE_PRESETS } from '../lib/calculator';
 import { detectHardwareProfile } from '../lib/hardwareDetection';
 import { CURRENCY_OPTIONS, detectCountryDefaults } from '../lib/locale';
 import { useLanguage } from '../lib/i18n';
 import { ApiUsageImportPanel } from './ApiUsagePage';
+import { Plus, Trash2, X } from 'lucide-react';
 
 interface Props {
   hardware: HardwareProfile;
@@ -19,6 +20,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
   const [isDetectingGpu, setIsDetectingGpu] = React.useState(false);
   const [electricityDetectionStatus, setElectricityDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
   const [gpuDetectionStatus, setGpuDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
+  const [isModelMixOpen, setIsModelMixOpen] = React.useState(false);
 
   const detectElectricityCost = async () => {
     setIsDetectingElectricity(true);
@@ -54,6 +56,29 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
     } finally {
       setIsDetectingGpu(false);
     }
+  };
+
+  const updateModelMix = (modelMix: UsageModelSelection[]) => setUsage({ ...usage, modelMix });
+  const activeModelMix = usage.modelMix ?? [];
+
+  const addModelMixItem = () => {
+    updateModelMix([
+      ...activeModelMix,
+      {
+        id: String(Date.now()),
+        modelId: usage.modelSizePreference === 'large' ? 'claude-sonnet' : 'gpt-4o-mini',
+        goal: usage.goal,
+        hoursPerDay: Math.min(usage.hoursPerDay, 2),
+      },
+    ]);
+  };
+
+  const updateModelMixItem = (id: string, patch: Partial<UsageModelSelection>) => {
+    updateModelMix(activeModelMix.map((item) => item.id === id ? { ...item, ...patch } : item));
+  };
+
+  const removeModelMixItem = (id: string) => {
+    updateModelMix(activeModelMix.filter((item) => item.id !== id));
   };
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -233,6 +258,20 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
             />
           </div>
 
+          <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="micro-label">{t('input.usage.advancedModels')}</p>
+                <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">
+                  {activeModelMix.length > 0 ? t('input.usage.advancedModelsActive') : t('input.usage.advancedModelsHelp')}
+                </p>
+              </div>
+              <button type="button" className="pill-button shrink-0" onClick={() => setIsModelMixOpen(true)}>
+                {activeModelMix.length > 0 ? t('input.usage.advancedModelsEdit') : t('input.usage.advancedModelsOpen')}
+              </button>
+            </div>
+          </div>
+
           <div>
             <label className="micro-label mb-2">{t('input.usage.currency')}</label>
             <select
@@ -290,6 +329,68 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
           <ApiUsageImportPanel hardware={hardware} usage={usage} />
         </div>
       </section>
+
+      {isModelMixOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02060d]/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="model-mix-modal-title">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[22px] border border-[#7dd3fc]/20 bg-[#07111f] p-5 shadow-2xl shadow-black/50 md:p-6">
+            <div className="flex items-start justify-between gap-4 border-b border-[#7dd3fc]/10 pb-5">
+              <div>
+                <p className="micro-label">{t('input.usage.advancedModels')}</p>
+                <h3 id="model-mix-modal-title" className="mt-2 font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">{t('input.usage.advancedModelsTitle')}</h3>
+                <p className="mt-3 text-sm leading-6 text-[#8ba7c7]">{t('input.usage.advancedModelsHelp')}</p>
+              </div>
+              <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#7dd3fc]/20 text-[#eaf4ff] transition hover:border-[#7dd3fc]/60 hover:bg-[#7dd3fc]/10" onClick={() => setIsModelMixOpen(false)} aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {activeModelMix.map((item) => (
+                <div key={item.id} className="rounded-[16px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.1fr_1fr_0.75fr_auto] md:items-end">
+                    <div>
+                      <label className="micro-label mb-2">{t('input.usage.advancedModels.model')}</label>
+                      <select className="control-field" value={item.modelId} onChange={(event) => updateModelMixItem(item.id, { modelId: event.target.value as CloudModelId })}>
+                        {Object.entries(CLOUD_MODEL_PROFILES).map(([id, profile]) => (
+                          <option key={id} value={id}>{profile.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="micro-label mb-2">{t('input.usage.goal')}</label>
+                      <select className="control-field" value={item.goal} onChange={(event) => updateModelMixItem(item.id, { goal: event.target.value as UsageGoal })}>
+                        <option value="chat">{t('input.usage.goal.chat')}</option>
+                        <option value="coding">{t('input.usage.goal.coding')}</option>
+                        <option value="rag">{t('input.usage.goal.rag')}</option>
+                        <option value="agents">{t('input.usage.goal.agents')}</option>
+                        <option value="embedding">{t('input.usage.goal.embedding')}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="micro-label mb-2">{t('input.usage.advancedModels.hours')}</label>
+                      <input className="control-field" type="number" min="0" max="24" step="0.5" value={item.hoursPerDay} onChange={(event) => updateModelMixItem(item.id, { hoursPerDay: Number(event.target.value) })} />
+                    </div>
+                    <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full border border-[#f3a6a6]/30 text-[#f3a6a6] transition hover:bg-[#f3a6a6]/10" onClick={() => removeModelMixItem(item.id)} aria-label={t('input.usage.advancedModels.remove')}>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {activeModelMix.length === 0 && (
+                <div className="rounded-[16px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5 text-sm leading-6 text-[#8ba7c7]">
+                  {t('input.usage.advancedModelsEmpty')}
+                </div>
+              )}
+
+              <button type="button" className="pill-button inline-flex items-center gap-2" onClick={addModelMixItem}>
+                <Plus className="h-4 w-4" />
+                {t('input.usage.advancedModelsAdd')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

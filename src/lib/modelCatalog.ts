@@ -1,4 +1,4 @@
-import { ModelCapability } from './types';
+import { ModelCapability, UsageGoal } from './types';
 
 export interface ModelCatalogEntry {
   name: string;
@@ -10,6 +10,8 @@ export interface ModelCatalogEntry {
   noteKey: string;
   noteGpuKey?: string;
   noteCpuKey?: string;
+  idealUseCases: UsageGoal[];
+  intelligenceScore: number;
 }
 
 export const MODEL_CATALOG: ModelCatalogEntry[] = [
@@ -21,6 +23,8 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     minGpuVramGB: 4,
     minCpuRamGB: 8,
     noteKey: 'calc.models.phi3',
+    idealUseCases: ['chat', 'embedding'],
+    intelligenceScore: 45,
   },
   {
     name: 'Llama 3 8B / Mistral 7B',
@@ -32,6 +36,8 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     noteKey: 'calc.models.llama3_8b.cpu',
     noteGpuKey: 'calc.models.llama3_8b.gpu',
     noteCpuKey: 'calc.models.llama3_8b.cpu',
+    idealUseCases: ['chat', 'rag'],
+    intelligenceScore: 58,
   },
   {
     name: 'Gemma 2 9B',
@@ -41,6 +47,8 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     minGpuVramGB: 8,
     minCpuRamGB: 16,
     noteKey: 'calc.models.gemma2',
+    idealUseCases: ['chat', 'rag'],
+    intelligenceScore: 62,
   },
   {
     name: 'DeepSeek R1 (Distill 8B)',
@@ -50,6 +58,8 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     minGpuVramGB: 6,
     minCpuRamGB: 16,
     noteKey: 'calc.models.deepseek_r1',
+    idealUseCases: ['coding', 'agents'],
+    intelligenceScore: 64,
   },
   {
     name: 'Qwen 2.5 14B / DeepSeek Coder V2 Lite',
@@ -61,6 +71,8 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     noteKey: 'calc.models.qwen.cpu',
     noteGpuKey: 'calc.models.qwen.gpu',
     noteCpuKey: 'calc.models.qwen.cpu',
+    idealUseCases: ['coding', 'rag', 'agents'],
+    intelligenceScore: 72,
   },
   {
     name: 'Llama 3.3 70B',
@@ -72,6 +84,8 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     noteKey: 'calc.models.llama3_70b.cpu',
     noteGpuKey: 'calc.models.llama3_70b.gpu',
     noteCpuKey: 'calc.models.llama3_70b.cpu',
+    idealUseCases: ['chat', 'coding', 'rag', 'agents'],
+    intelligenceScore: 84,
   },
 ];
 
@@ -102,5 +116,8 @@ export function evaluateCatalogEntry(
     speed,
     canRun,
     notes: t(noteKey),
+    idealUseCases: model.idealUseCases,
+    idealUseCaseLabels: model.idealUseCases.map((goal) => t(`input.usage.goal.${goal}`)).join(', '),
+    intelligenceScore: model.intelligenceScore,
   };
 }

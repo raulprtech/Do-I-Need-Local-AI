@@ -1,5 +1,5 @@
 import { Diagnosis } from '../lib/types';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AlertTriangle, CheckCircle2, GitBranch, XCircle } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
@@ -9,7 +9,7 @@ interface Props {
 
 export function ResultsDashboard({ diagnosis }: Props) {
   const { t } = useLanguage();
-  const { mainLimitation, recommendedModels, economics, overallSummary } = diagnosis;
+  const { mainLimitation, recommendedModels, economics, overallSummary, intelligenceComparison, frontierScore, bestLocalScore } = diagnosis;
   const exchangeRate = economics.exchangeRateFromUsd || 1;
   const formatMoney = (usd: number, maximumFractionDigits = 0) => {
     const value = usd * exchangeRate;
@@ -69,11 +69,12 @@ export function ResultsDashboard({ diagnosis }: Props) {
             <span className="rounded-full border border-[#7dd3fc]/70 px-3 py-1 text-xs text-[#7dd3fc]">GGUF Q4</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-xs">
+            <table className="w-full min-w-[760px] text-left text-xs">
               <thead>
                 <tr className="border-b border-[#7dd3fc]/10 text-[#8ba7c7]">
                   <th className="pb-3 pr-4 font-medium">Model</th>
-                  <th className="pb-3 pr-4 font-medium">Quantization</th>
+                  <th className="pb-3 pr-4 font-medium">Ideal</th>
+                  <th className="pb-3 pr-4 font-medium">Quality</th>
                   <th className="pb-3 font-medium">Performance</th>
                 </tr>
               </thead>
@@ -85,9 +86,14 @@ export function ResultsDashboard({ diagnosis }: Props) {
                       <div className="mt-1 max-w-[260px] text-[10px] leading-4 text-[#8ba7c7]">{model.notes}</div>
                     </td>
                     <td className="py-4 pr-4 align-top">
-                      <span className="rounded-full border border-[#7dd3fc]/15 bg-black/20 px-2 py-1 font-mono text-[10px] text-[#7dd3fc]">
+                      <div className="max-w-[220px] text-[10px] leading-4 text-[#8ba7c7]">{model.idealUseCaseLabels}</div>
+                      <span className="mt-2 inline-block rounded-full border border-[#7dd3fc]/15 bg-black/20 px-2 py-1 font-mono text-[10px] text-[#7dd3fc]">
                         {model.quantization}
                       </span>
+                    </td>
+                    <td className="py-4 pr-4 align-top">
+                      <span className="font-mono text-lg text-[#dbeafe]">{model.intelligenceScore}</span>
+                      <span className="ml-1 text-[10px] text-[#8ba7c7]">/100</span>
                     </td>
                     <td className="py-4 align-top">
                       {model.canRun ? (
@@ -156,6 +162,40 @@ export function ResultsDashboard({ diagnosis }: Props) {
           </div>
         </div>
       </div>
+
+      {intelligenceComparison.length > 0 && (
+        <section className="panel-card flex min-h-[360px] flex-col overflow-hidden">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">{t('results.intelligence.title')}</h3>
+              <p className="mt-2 text-sm leading-6 text-[#8ba7c7]">{t('results.intelligence.description')}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-right">
+              <div>
+                <span className="micro-label mb-1">Frontier</span>
+                <span className="block font-mono text-3xl text-[#dbeafe]">{frontierScore}</span>
+              </div>
+              <div>
+                <span className="micro-label mb-1">Local</span>
+                <span className="block font-mono text-3xl text-[#7dd3fc]">{bestLocalScore}</span>
+              </div>
+            </div>
+          </div>
+          <div className="min-h-[230px] flex-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={intelligenceComparison} margin={{ top: 10, right: 10, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(125,211,252,0.10)" vertical={false} />
+                <XAxis dataKey="name" stroke="#8ba7c7" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#8ba7c7" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
+                <Tooltip contentStyle={{ backgroundColor: '#06111f', borderColor: 'rgba(125,211,252,0.22)', borderRadius: '14px', color: '#eaf4ff' }} itemStyle={{ fontSize: '12px' }} />
+                <Legend verticalAlign="top" height={34} iconType="circle" wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8ba7c7' }} />
+                <Bar dataKey="frontierScore" name="Frontier" fill="#dbeafe" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="localScore" name="Local" fill="#7dd3fc" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
 
       {diagnosis.softwareRecommendations && diagnosis.softwareRecommendations.length > 0 && (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

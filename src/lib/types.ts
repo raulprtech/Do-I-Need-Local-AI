@@ -16,6 +16,14 @@ export interface HardwareProfile {
 
 export type UsageGoal = 'chat' | 'coding' | 'agents' | 'rag' | 'vision' | 'embedding';
 export type UsageFrequency = 'occasional' | 'daily' | 'heavy' | 'production';
+export type CloudModelId = 'gpt-4o' | 'claude-sonnet' | 'gemini-pro' | 'deepseek-chat' | 'gpt-4o-mini';
+
+export interface UsageModelSelection {
+  id: string;
+  modelId: CloudModelId;
+  goal: UsageGoal;
+  hoursPerDay: number;
+}
 
 export interface UsageProfile {
   goal: UsageGoal;
@@ -28,6 +36,7 @@ export interface UsageProfile {
   currencyCode: string;
   currencySymbol: string;
   exchangeRateFromUsd: number;
+  modelMix: UsageModelSelection[];
 }
 
 export interface ModelCapability {
@@ -37,6 +46,9 @@ export interface ModelCapability {
   speed: 'fast' | 'acceptable' | 'slow' | 'unusable';
   canRun: boolean;
   notes: string;
+  idealUseCases: UsageGoal[];
+  idealUseCaseLabels: string;
+  intelligenceScore: number;
 }
 
 export interface EconomicAnalysis {
@@ -61,6 +73,13 @@ export interface SoftwareRecommendation {
   description: string;
 }
 
+export interface IntelligenceComparisonPoint {
+  name: string;
+  localScore: number;
+  frontierScore: number;
+  gap: number;
+}
+
 export interface Diagnosis {
   canRunLocal: boolean;
   mainLimitation: string | null;
@@ -69,4 +88,7 @@ export interface Diagnosis {
   overallSummary: string;
   softwareRecommendations: SoftwareRecommendation[];
   assumptions: string[];
+  intelligenceComparison: IntelligenceComparisonPoint[];
+  frontierScore: number;
+  bestLocalScore: number;
 }

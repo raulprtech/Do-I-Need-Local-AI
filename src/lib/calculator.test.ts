@@ -27,6 +27,7 @@ const baseUsage: UsageProfile = {
   currencyCode: 'USD',
   currencySymbol: '$',
   exchangeRateFromUsd: 1,
+  modelMix: [],
 };
 
 const noGpu = evaluateSystem(
@@ -44,6 +45,8 @@ const privateWork = evaluateSystem(
 );
 assert.equal(privateWork.economics.verdict, 'local');
 assert.ok(privateWork.assumptions.length >= 4);
+assert.ok(privateWork.recommendedModels.every((model) => model.idealUseCases.length > 0));
+assert.ok(privateWork.intelligenceComparison.length > 0);
 
 const ownedHardwareCost = evaluateSystem(baseHardware, baseUsage, t);
 assert.equal(ownedHardwareCost.economics.hardwareAmortizationMonthly, 0);
@@ -60,5 +63,13 @@ const productionLarge = evaluateSystem(
 );
 assert.equal(productionLarge.economics.verdict, 'hybrid');
 assert.ok(productionLarge.recommendedModels.some((model) => model.canRun));
+
+const advancedMix = evaluateSystem(
+  baseHardware,
+  { ...baseUsage, modelMix: [{ id: 'primary', modelId: 'claude-sonnet', goal: 'coding', hoursPerDay: 3 }] },
+  t,
+);
+assert.ok(advancedMix.economics.monthlyApiCost > ownedHardwareCost.economics.monthlyApiCost);
+assert.equal(advancedMix.intelligenceComparison[0].name, 'input.usage.goal.coding');
 
 console.log('calculator tests passed');

@@ -54,6 +54,7 @@ function normalizeUsage(data: Partial<UsageProfile>): UsageProfile {
     currencyCode: data.currencyCode ?? DEFAULT_COUNTRY.currencyCode,
     currencySymbol: data.currencySymbol ?? DEFAULT_COUNTRY.currencySymbol,
     exchangeRateFromUsd: data.exchangeRateFromUsd ?? DEFAULT_COUNTRY.exchangeRateFromUsd,
+    modelMix: Array.isArray(data.modelMix) ? data.modelMix : [],
   };
 }
 
