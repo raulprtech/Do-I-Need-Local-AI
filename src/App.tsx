@@ -9,7 +9,7 @@ import { DEFAULT_COUNTRY, detectCountryDefaults } from './lib/locale';
 import { HardwareProfile, UsageProfile } from './lib/types';
 import { useLanguage } from './lib/i18n';
 
-type View = 'dashboard' | 'compare' | 'why' | 'how';
+type View = 'dashboard' | 'compare' | 'about';
 
 function encodeState(hardware: HardwareProfile, usage: UsageProfile) {
   try {
@@ -70,9 +70,9 @@ function InfoPage({ title, eyebrow, children }: { title: string; eyebrow: string
   );
 }
 
-function WhyPage() {
+function AboutPage({ assumptions }: { assumptions: string[] }) {
   return (
-    <InfoPage eyebrow="Decision guide" title="Por que comparar local vs API">
+    <InfoPage eyebrow="About" title="Acerca de la comparacion">
       <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
         <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Costos reales</h3>
         <p>Una API puede ser barata al inicio, pero el costo sube con horas de uso, agentes, RAG y produccion. Local tiene costo inicial, electricidad y mantenimiento.</p>
@@ -89,13 +89,6 @@ function WhyPage() {
         <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Hardware honesto</h3>
         <p>No todo equipo con GPU sirve para todo. La app estima si tu memoria alcanza para modelos pequenos, medianos o grandes en cuantizacion Q4.</p>
       </div>
-    </InfoPage>
-  );
-}
-
-function HowPage({ assumptions }: { assumptions: string[] }) {
-  return (
-    <InfoPage eyebrow="Methodology" title="Como calculamos el veredicto">
       <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
         <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Costo API</h3>
         <p>Partimos de frecuencia, horas activas y caso de uso para estimar volumen mensual. El modelo de costo usa tokens aproximados por tarea y precio por millon de tokens segun el perfil seleccionado.</p>
@@ -278,8 +271,7 @@ export default function App() {
             </>
           )}
           {view === 'compare' && <ComparisonPage hardware={hardware} usage={usage} />}
-          {view === 'why' && <WhyPage />}
-          {view === 'how' && <HowPage assumptions={diagnosis.assumptions} />}
+          {view === 'about' && <AboutPage assumptions={diagnosis.assumptions} />}
         </main>
       </div>
     </div>

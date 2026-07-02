@@ -1,7 +1,7 @@
 import { Cpu, HelpCircle, Share2, Check, Globe } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
-type View = 'dashboard' | 'compare' | 'why' | 'how';
+type View = 'dashboard' | 'compare' | 'about';
 
 interface Props {
   onShare?: () => void;
@@ -30,8 +30,7 @@ export default function Header({ onShare, shared, activeView, onNavigate }: Prop
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#eaf4ff] md:flex">
             <button type="button" onClick={() => onNavigate('dashboard')} className={navClass('dashboard')}>{t('header.dashboard')}</button>
             <button type="button" onClick={() => onNavigate('compare')} className={navClass('compare')}>{t('header.compare')}</button>
-            <button type="button" onClick={() => onNavigate('why')} className={navClass('why')}>{t('header.why')}</button>
-            <button type="button" onClick={() => onNavigate('how')} className={navClass('how')}>{t('header.howItWorks')}</button>
+            <button type="button" onClick={() => onNavigate('about')} className={navClass('about')}>{t('header.about')}</button>
           </nav>
         </div>
 
@@ -43,7 +42,7 @@ export default function Header({ onShare, shared, activeView, onNavigate }: Prop
             <Globe className="h-4 w-4" />
             <span>{lang === 'es' ? 'ES' : 'EN'}</span>
           </button>
-          <button type="button" onClick={() => onNavigate('how')} className="hidden rounded-full p-2 text-[#eaf4ff] transition hover:bg-[#7dd3fc]/10 sm:block" title={t('header.howItWorks')}>
+          <button type="button" onClick={() => onNavigate('about')} className="hidden rounded-full p-2 text-[#eaf4ff] transition hover:bg-[#7dd3fc]/10 sm:block" title={t('header.about')}>
             <HelpCircle className="h-5 w-5" />
           </button>
           {onShare && (
@@ -60,8 +59,7 @@ export default function Header({ onShare, shared, activeView, onNavigate }: Prop
       <nav className="flex gap-3 overflow-x-auto border-b border-[#7dd3fc]/10 pb-5 text-xs font-medium text-[#eaf4ff] md:hidden">
         <button type="button" onClick={() => onNavigate('dashboard')} className={`${navClass('dashboard')} whitespace-nowrap`}>{t('header.dashboard')}</button>
         <button type="button" onClick={() => onNavigate('compare')} className={`${navClass('compare')} whitespace-nowrap`}>{t('header.compare')}</button>
-        <button type="button" onClick={() => onNavigate('why')} className={`${navClass('why')} whitespace-nowrap`}>{t('header.why')}</button>
-        <button type="button" onClick={() => onNavigate('how')} className={`${navClass('how')} whitespace-nowrap`}>{t('header.howItWorks')}</button>
+        <button type="button" onClick={() => onNavigate('about')} className={`${navClass('about')} whitespace-nowrap`}>{t('header.about')}</button>
       </nav>
     </header>
   );
