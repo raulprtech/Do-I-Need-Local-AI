@@ -9,8 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/lib/calculator.test.ts",
-    "dataset:validate": "node scripts/validate-dataset.mjs"
+    "test": "tsx src/lib/calculator.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

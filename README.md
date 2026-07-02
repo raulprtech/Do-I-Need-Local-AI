@@ -58,20 +58,15 @@ Las estimaciones usan reglas aproximadas para GGUF/llama.cpp y cuantizacion Q4. 
 
 ## Dataset
 
-El proyecto ahora incluye una primera semilla de dataset en `dataset/`, pensada para migrarse despues a [`raulprtech/ai-infra-dataset`](https://github.com/raulprtech/ai-infra-dataset).
+Los datos de APIs, GPUs, modelos locales, fuentes y niveles de confianza viven ahora en [raulprtech/ai-infra-dataset](https://github.com/raulprtech/ai-infra-dataset).
 
-La idea es mantener GitHub como fuente publica auditable y usar Supabase como capa operacional para formularios, cola de revision, roles, dashboards y datos privados Enterprise.
+La web debe tratar ese repo como fuente publica auditable. Supabase queda como capa operacional para submissions, cola de revision, roles, dashboards y futuros datos privados Enterprise.
 
 ```txt
 Supabase = flujo de trabajo y producto
 GitHub = dataset publico versionado
 ```
 
-Puedes validar la estructura inicial con:
-
-```bash
-npm run dataset:validate
-```
 ## Tech Stack
 
 | Tecnologia | Uso |
@@ -109,7 +104,6 @@ Por defecto, Vite levanta la app en `http://localhost:3000`.
 | `npm run preview` | Previsualiza el build |
 | `npm run lint` | Ejecuta TypeScript sin emitir archivos |
 | `npm run clean` | Limpia artefactos generados |
-| `npm run dataset:validate` | Valida los archivos JSON del dataset |
 
 ## Project Structure
 
