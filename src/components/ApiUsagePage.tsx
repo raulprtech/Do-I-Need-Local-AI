@@ -52,6 +52,7 @@ export function ApiUsageImportPanel({ hardware, usage }: Props) {
   const { t } = useLanguage();
   const [rawInput, setRawInput] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
 
   const parsed = useMemo(() => {
     try {
@@ -86,9 +87,23 @@ export function ApiUsageImportPanel({ hardware, usage }: Props) {
           <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">{t('apiUsage.description')}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden items-center gap-2 rounded-full border border-[#7dd3fc]/20 bg-[#07111f]/70 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#8ba7c7] sm:inline-flex">
-            <ShieldCheck className="h-3.5 w-3.5 text-[#7dd3fc]" />
-            {t('apiUsage.localOnly')}
+          <span className="group relative inline-flex">
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#7dd3fc]/20 bg-[#07111f]/70 text-[#7dd3fc] transition hover:border-[#7dd3fc]/60 hover:bg-[#7dd3fc]/10 focus:outline-none focus:ring-2 focus:ring-[#7dd3fc]/40"
+              aria-label={t('apiUsage.localOnly')}
+              aria-expanded={isInfoOpen}
+              title={t('apiUsage.localOnly')}
+              onClick={() => setIsInfoOpen((value) => !value)}
+            >
+              <ShieldCheck className="h-4 w-4" />
+            </button>
+            <span className={[
+              "pointer-events-none absolute right-0 top-11 z-20 w-44 rounded-[12px] border border-[#7dd3fc]/20 bg-[#07111f] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#b7cbe2] shadow-2xl shadow-black/40 transition group-hover:opacity-100 group-focus-within:opacity-100",
+              isInfoOpen ? "opacity-100" : "opacity-0",
+            ].join(" ")}>
+              {t('apiUsage.localOnly')}
+            </span>
           </span>
           <button
             type="button"
