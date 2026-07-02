@@ -126,7 +126,7 @@ export function ResultsDashboard({ diagnosis }: Props) {
               <span className="mt-2 block font-mono text-4xl">{formatMoney(economics.monthlyApiCost, 2)}</span>
             </div>
             <div className="border-l border-[#06111f]/15 pl-4">
-              <span className="block text-[10px] uppercase tracking-[0.18em] text-[#405a78]">{t('results.economics.localCost')}</span>
+              <span className="block text-[10px] uppercase tracking-[0.18em] text-[#405a78]">{t(economics.includesHardwarePurchase ? 'results.economics.localCost' : 'results.economics.localCostOwned')}</span>
               <span className="mt-2 block font-mono text-4xl">{formatMoney(economics.totalLocalMonthly, 2)}</span>
             </div>
           </div>

@@ -156,6 +156,27 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
               />
               <span className="mt-2 block text-[9px] uppercase tracking-[0.18em] text-[#7dd3fc]/80">{t('input.hardware.marketEst')}</span>
             </div>
+
+            <div className="col-span-2">
+              <label className="micro-label mb-2">{t('input.hardware.purchaseStatus')}</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`rounded-full border px-4 py-2 text-xs transition ${hardware.purchaseStatus === 'owned' ? 'border-[#7dd3fc] bg-[#7dd3fc]/15 text-[#eaf4ff]' : 'border-[#7dd3fc]/20 text-[#8ba7c7] hover:border-[#7dd3fc]/60'}`}
+                  onClick={() => setHardware({ ...hardware, purchaseStatus: 'owned' })}
+                >
+                  {t('input.hardware.purchaseStatus.owned')}
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-full border px-4 py-2 text-xs transition ${hardware.purchaseStatus === 'planned' ? 'border-[#7dd3fc] bg-[#7dd3fc]/15 text-[#eaf4ff]' : 'border-[#7dd3fc]/20 text-[#8ba7c7] hover:border-[#7dd3fc]/60'}`}
+                  onClick={() => setHardware({ ...hardware, purchaseStatus: 'planned' })}
+                >
+                  {t('input.hardware.purchaseStatus.planned')}
+                </button>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">{hardware.purchaseStatus === 'planned' ? t('input.hardware.purchaseStatus.plannedHelp') : t('input.hardware.purchaseStatus.ownedHelp')}</p>
+            </div>
           </div>
         </div>
       </section>

@@ -1,5 +1,6 @@
 export type OS = 'Windows' | 'macOS' | 'Linux';
 export type GPUMaker = 'NVIDIA' | 'AMD' | 'Apple' | 'Intel' | 'None';
+export type HardwarePurchaseStatus = 'owned' | 'planned';
 
 export interface HardwareProfile {
   preset: string; // e.g. "custom", "rtx4090", "m3max", "nogpu"
@@ -10,6 +11,7 @@ export interface HardwareProfile {
   ramGB: number;
   cpuName: string;
   devicePriceUsd: number;
+  purchaseStatus: HardwarePurchaseStatus;
 }
 
 export type UsageGoal = 'chat' | 'coding' | 'agents' | 'rag' | 'vision' | 'embedding';
@@ -39,7 +41,9 @@ export interface ModelCapability {
 
 export interface EconomicAnalysis {
   monthlyApiCost: number;
-  hardwareAmortizationMonthly: number; // e.g. devicePriceUsd / 24
+  hardwareAmortizationMonthly: number; // e.g. devicePriceUsd / 24 when purchase is planned
+  hardwarePurchaseCostUsd: number;
+  includesHardwarePurchase: boolean;
   electricityCostMonthly: number;
   totalLocalMonthly: number;
   breakevenMonths: number;

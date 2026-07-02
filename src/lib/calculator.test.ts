@@ -13,6 +13,7 @@ const baseHardware: HardwareProfile = {
   ramGB: 16,
   cpuName: '',
   devicePriceUsd: 850,
+  purchaseStatus: 'owned',
 };
 
 const baseUsage: UsageProfile = {
@@ -43,6 +44,14 @@ const privateWork = evaluateSystem(
 );
 assert.equal(privateWork.economics.verdict, 'local');
 assert.ok(privateWork.assumptions.length >= 4);
+
+const ownedHardwareCost = evaluateSystem(baseHardware, baseUsage, t);
+assert.equal(ownedHardwareCost.economics.hardwareAmortizationMonthly, 0);
+assert.equal(ownedHardwareCost.economics.hardwarePurchaseCostUsd, 0);
+
+const plannedHardwareCost = evaluateSystem({ ...baseHardware, purchaseStatus: 'planned' }, baseUsage, t);
+assert.equal(plannedHardwareCost.economics.hardwareAmortizationMonthly, baseHardware.devicePriceUsd / 24);
+assert.equal(plannedHardwareCost.economics.hardwarePurchaseCostUsd, baseHardware.devicePriceUsd);
 
 const productionLarge = evaluateSystem(
   { ...baseHardware, vramGB: 24, ramGB: 64, devicePriceUsd: 3200 },

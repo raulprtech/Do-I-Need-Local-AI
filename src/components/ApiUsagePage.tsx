@@ -63,7 +63,7 @@ export function ApiUsagePage({ hardware, usage }: Props) {
 
   const { summary, error } = parsed;
 
-  const paybackMonths = summary.estimatedMonthlySavingsUsd > 0
+  const paybackMonths = hardware.purchaseStatus === 'planned' && summary.estimatedMonthlySavingsUsd > 0
     ? hardware.devicePriceUsd / summary.estimatedMonthlySavingsUsd
     : null;
   const localizablePercent = Math.round(summary.localizableShare * 100);
@@ -130,7 +130,7 @@ export function ApiUsagePage({ hardware, usage }: Props) {
               <span className="micro-label">{t('apiUsage.savings')}</span>
               <span className="mt-3 block font-mono text-4xl text-[#dbeafe]">{formatMoney(summary.estimatedMonthlySavingsUsd, usage)}</span>
               <span className="mt-2 block text-xs text-[#8ba7c7]">
-                {paybackMonths ? `${Math.ceil(paybackMonths)} ${t('results.economics.months')}` : t('apiUsage.noPayback')}
+                {paybackMonths ? `${Math.ceil(paybackMonths)} ${t('results.economics.months')}` : hardware.purchaseStatus === 'owned' ? t('apiUsage.ownedHardware') : t('apiUsage.noPayback')}
               </span>
             </div>
           </div>

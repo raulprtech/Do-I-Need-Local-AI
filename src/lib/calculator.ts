@@ -72,7 +72,9 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
   const hasUsefulLocalOption = canRunLocal && usefulLocalModels.length > 0;
 
   const monthlyApiCost = estimateApiCostMonthly(usage);
-  const hardwareAmortizationMonthly = (hardware.devicePriceUsd || 0) / 24;
+  const includesHardwarePurchase = hardware.purchaseStatus === 'planned';
+  const hardwarePurchaseCostUsd = includesHardwarePurchase ? (hardware.devicePriceUsd || 0) : 0;
+  const hardwareAmortizationMonthly = hardwarePurchaseCostUsd / 24;
   const inferenceHoursPerDay = usage.hoursPerDay * 0.25;
   const kW = hardware.gpuMaker === 'NVIDIA' ? 0.3 : hardware.gpuMaker === 'Apple' ? 0.05 : 0.12;
   const electricityCostMonthly = inferenceHoursPerDay * kW * 30 * usage.electricityCostPerKwh;
@@ -80,7 +82,7 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
 
   let breakevenMonths = -1;
   if (monthlyApiCost > electricityCostMonthly) {
-    breakevenMonths = hardware.devicePriceUsd / (monthlyApiCost - electricityCostMonthly);
+    breakevenMonths = includesHardwarePurchase ? hardwarePurchaseCostUsd / (monthlyApiCost - electricityCostMonthly) : 0;
   }
 
   let verdict: EconomicAnalysis['verdict'] = 'api';
@@ -114,7 +116,7 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
   const costDataOverTime = Array.from({ length: 12 }, (_, i) => ({
     month: i + 1,
     apiCost: monthlyApiCost * (i + 1),
-    localCost: hardware.devicePriceUsd + (electricityCostMonthly * (i + 1)),
+    localCost: hardwarePurchaseCostUsd + (electricityCostMonthly * (i + 1)),
   }));
 
   let mainLimitation = null;
@@ -131,6 +133,8 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
     economics: {
       monthlyApiCost,
       hardwareAmortizationMonthly,
+      hardwarePurchaseCostUsd,
+      includesHardwarePurchase,
       electricityCostMonthly,
       totalLocalMonthly,
       breakevenMonths,
@@ -149,7 +153,7 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
     softwareRecommendations: getSoftwareRecommendations(hardware, usage),
     assumptions: [
       t('calc.assumption.tokens'),
-      t('calc.assumption.hardware'),
+      t(includesHardwarePurchase ? 'calc.assumption.hardware.planned' : 'calc.assumption.hardware.owned'),
       t('calc.assumption.energy'),
       t('calc.assumption.models'),
     ],

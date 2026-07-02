@@ -29,6 +29,20 @@ function decodeState(encoded: string) {
   }
 }
 
+function normalizeHardware(data: Partial<HardwareProfile>): HardwareProfile {
+  return {
+    preset: data.preset ?? 'rtx3060',
+    os: data.os ?? 'Windows',
+    gpuMaker: data.gpuMaker ?? 'NVIDIA',
+    gpuName: data.gpuName ?? 'RTX 3060',
+    vramGB: data.vramGB ?? 12,
+    ramGB: data.ramGB ?? 16,
+    cpuName: data.cpuName ?? '',
+    devicePriceUsd: data.devicePriceUsd ?? 1000,
+    purchaseStatus: data.purchaseStatus ?? 'owned',
+  };
+}
+
 function normalizeUsage(data: Partial<UsageProfile>): UsageProfile {
   return {
     goal: data.goal ?? 'chat',
@@ -111,12 +125,12 @@ export default function App() {
     const s = params.get('s');
     if (s) {
       const decoded = decodeState(s);
-      if (decoded && decoded.h) return decoded.h;
+      if (decoded && decoded.h) return normalizeHardware(decoded.h);
     }
     const saved = localStorage.getItem('hardware_v2');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        return normalizeHardware(JSON.parse(saved));
       } catch (e) {}
     }
     return {
@@ -127,6 +141,7 @@ export default function App() {
       vramGB: 12,
       ramGB: 16,
       devicePriceUsd: 1000,
+      purchaseStatus: 'owned',
       cpuName: '',
     };
   });
