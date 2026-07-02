@@ -36,7 +36,7 @@ Hardware + uso esperado -> compatibilidad de modelos -> costo API vs local -> ve
 - Matriz de modelos con viabilidad, cuantizacion y rendimiento esperado.
 - Proyeccion economica a 12 meses con costo API vs costo local.
 - Punto de equilibrio para estimar cuando se recupera la inversion.
-- Recomendaciones de software como Ollama, LM Studio y vLLM segun sistema operativo y uso.
+- Recomendaciones de software para inferencia local y cargas de produccion segun sistema operativo y uso.
 - Persistencia local con `localStorage`.
 - Soporte i18n en espanol e ingles.
 - Enlace compartible con la configuracion del usuario.

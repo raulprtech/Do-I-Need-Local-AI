@@ -54,32 +54,14 @@ function getEffectiveVramGB(hardware: HardwareProfile): number {
   return hardware.vramGB;
 }
 
-function getSoftwareRecommendations(hardware: HardwareProfile, usage: UsageProfile): SoftwareRecommendation[] {
-  if (hardware.os === 'macOS') {
+function getSoftwareRecommendations(_hardware: HardwareProfile, usage: UsageProfile): SoftwareRecommendation[] {
+  if (usage.frequency === 'production' || usage.frequency === 'heavy') {
     return [
-      { name: 'Ollama', url: 'https://ollama.com', description: 'Forma simple de correr modelos desde terminal e integrarlos con otras apps.' },
+      { name: 'vLLM', url: 'https://github.com/vllm-project/vllm', description: 'Motor de inferencia de alto rendimiento para servidores y cargas concurrentes.' },
     ];
   }
 
-  if (hardware.os === 'Windows') {
-    const recommendations: SoftwareRecommendation[] = [];
-
-    if (hardware.gpuMaker === 'NVIDIA') {
-      recommendations.push({ name: 'Ollama', url: 'https://ollama.com', description: 'Ideal para terminal, flujos locales y editores de codigo.' });
-    }
-
-    return recommendations;
-  }
-
-  const recommendations: SoftwareRecommendation[] = [
-    { name: 'Ollama', url: 'https://ollama.com', description: 'Opcion simple y popular para Linux, desarrollo local y prototipos.' },
-  ];
-
-  if (usage.frequency === 'production' || usage.frequency === 'heavy') {
-    recommendations.push({ name: 'vLLM', url: 'https://github.com/vllm-project/vllm', description: 'Motor de inferencia de alto rendimiento para servidores y cargas concurrentes.' });
-  }
-
-  return recommendations;
+  return [];
 }
 
 export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t: (key: string) => string): Diagnosis {
@@ -173,3 +155,4 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
     ],
   };
 }
+

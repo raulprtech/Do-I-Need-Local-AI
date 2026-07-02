@@ -22,15 +22,15 @@ export default function Header({ onShare, shared, activeView, onNavigate }: Prop
             type="button"
             onClick={() => onNavigate('dashboard')}
             className="relative flex h-10 w-12 items-center justify-center rounded-[14px] border border-[#7dd3fc]/80"
-            title="Dashboard"
+            title={t('header.dashboard')}
           >
             <Cpu className="h-5 w-5 text-[#eaf4ff]" />
             <span className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-[#7dd3fc]" />
           </button>
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#eaf4ff] md:flex">
-            <button type="button" onClick={() => onNavigate('dashboard')} className={navClass('dashboard')}>Dashboard</button>
-            <button type="button" onClick={() => onNavigate('compare')} className={navClass('compare')}>Comparator</button>
-            <button type="button" onClick={() => onNavigate('why')} className={navClass('why')}>Why</button>
+            <button type="button" onClick={() => onNavigate('dashboard')} className={navClass('dashboard')}>{t('header.dashboard')}</button>
+            <button type="button" onClick={() => onNavigate('compare')} className={navClass('compare')}>{t('header.compare')}</button>
+            <button type="button" onClick={() => onNavigate('why')} className={navClass('why')}>{t('header.why')}</button>
             <button type="button" onClick={() => onNavigate('how')} className={navClass('how')}>{t('header.howItWorks')}</button>
           </nav>
         </div>
@@ -58,9 +58,9 @@ export default function Header({ onShare, shared, activeView, onNavigate }: Prop
         </div>
       </div>
       <nav className="flex gap-3 overflow-x-auto border-b border-[#7dd3fc]/10 pb-5 text-xs font-medium text-[#eaf4ff] md:hidden">
-        <button type="button" onClick={() => onNavigate('dashboard')} className={`${navClass('dashboard')} whitespace-nowrap`}>Dashboard</button>
-        <button type="button" onClick={() => onNavigate('compare')} className={`${navClass('compare')} whitespace-nowrap`}>Comparator</button>
-        <button type="button" onClick={() => onNavigate('why')} className={`${navClass('why')} whitespace-nowrap`}>Why</button>
+        <button type="button" onClick={() => onNavigate('dashboard')} className={`${navClass('dashboard')} whitespace-nowrap`}>{t('header.dashboard')}</button>
+        <button type="button" onClick={() => onNavigate('compare')} className={`${navClass('compare')} whitespace-nowrap`}>{t('header.compare')}</button>
+        <button type="button" onClick={() => onNavigate('why')} className={`${navClass('why')} whitespace-nowrap`}>{t('header.why')}</button>
         <button type="button" onClick={() => onNavigate('how')} className={`${navClass('how')} whitespace-nowrap`}>{t('header.howItWorks')}</button>
       </nav>
     </header>

@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Cloud, Cpu, Equal, Trophy, XCircle } from 'lucide-react';
 import { evaluateSystem } from '../lib/calculator';
 import { MODEL_CATALOG } from '../lib/modelCatalog';
 import { HardwareProfile, UsageProfile } from '../lib/types';
 import { useLanguage } from '../lib/i18n';
+import { ApiOption, FALLBACK_API_OPTIONS, HARDWARE_OPTIONS, HardwareOption, loadApiOptions } from '../lib/infraDataset';
 
 interface Props {
   hardware: HardwareProfile;
@@ -12,24 +13,6 @@ interface Props {
 
 type PlanKind = 'api' | 'hardware';
 type SortKey = 'name' | 'winner' | 'cost' | 'fit';
-
-interface ApiOption {
-  id: string;
-  kind: 'api';
-  name: string;
-  detail: string;
-  inputUsdPerMillion: number;
-  outputUsdPerMillion: number;
-  quality: number;
-}
-
-interface HardwareOption {
-  id: string;
-  kind: 'hardware';
-  name: string;
-  detail: string;
-  profile: HardwareProfile;
-}
 
 type PlanOption = ApiOption | HardwareOption;
 
@@ -50,52 +33,6 @@ interface PlanResult {
   label: string;
   sublabel: string;
 }
-
-const API_OPTIONS: ApiOption[] = [
-  { id: 'openai-mini', kind: 'api', name: 'OpenAI mini', detail: 'balanced API', inputUsdPerMillion: 0.15, outputUsdPerMillion: 0.6, quality: 72 },
-  { id: 'gemini-flash', kind: 'api', name: 'Gemini Flash', detail: 'fast long context', inputUsdPerMillion: 0.3, outputUsdPerMillion: 2.5, quality: 76 },
-  { id: 'deepseek-chat', kind: 'api', name: 'DeepSeek chat', detail: 'budget API', inputUsdPerMillion: 0.27, outputUsdPerMillion: 1.1, quality: 70 },
-  { id: 'openai-frontier', kind: 'api', name: 'OpenAI frontier', detail: 'premium quality', inputUsdPerMillion: 2, outputUsdPerMillion: 8, quality: 88 },
-  { id: 'claude-sonnet', kind: 'api', name: 'Claude Sonnet', detail: 'coding and reasoning', inputUsdPerMillion: 3, outputUsdPerMillion: 15, quality: 90 },
-];
-
-const HARDWARE_OPTIONS: HardwareOption[] = [
-  {
-    id: 'rtx3060',
-    kind: 'hardware',
-    name: 'RTX 3060 12GB',
-    detail: 'entry local GPU',
-    profile: { preset: 'rtx3060', os: 'Windows', gpuMaker: 'NVIDIA', gpuName: 'RTX 3060', vramGB: 12, ramGB: 16, cpuName: '', devicePriceUsd: 850 },
-  },
-  {
-    id: 'rtx4070ti',
-    kind: 'hardware',
-    name: 'RTX 4070 Ti Super',
-    detail: '16GB local workstation',
-    profile: { preset: 'rtx4070tisuper', os: 'Windows', gpuMaker: 'NVIDIA', gpuName: 'RTX 4070 Ti Super', vramGB: 16, ramGB: 32, cpuName: '', devicePriceUsd: 1600 },
-  },
-  {
-    id: 'rtx4090',
-    kind: 'hardware',
-    name: 'RTX 4090 24GB',
-    detail: 'high-end local GPU',
-    profile: { preset: 'rtx4090', os: 'Windows', gpuMaker: 'NVIDIA', gpuName: 'RTX 4090', vramGB: 24, ramGB: 64, cpuName: '', devicePriceUsd: 3200 },
-  },
-  {
-    id: 'macm4',
-    kind: 'hardware',
-    name: 'Mac mini M4',
-    detail: 'efficient Apple Silicon',
-    profile: { preset: 'macmini_m4_16gb', os: 'macOS', gpuMaker: 'Apple', gpuName: 'M4', vramGB: 12, ramGB: 16, cpuName: '', devicePriceUsd: 799 },
-  },
-  {
-    id: 'm3max',
-    kind: 'hardware',
-    name: 'M3 Max 64GB',
-    detail: 'portable high-memory local',
-    profile: { preset: 'm3max_64gb', os: 'macOS', gpuMaker: 'Apple', gpuName: 'M3 Max', vramGB: 48, ramGB: 64, cpuName: '', devicePriceUsd: 3999 },
-  },
-];
 
 const SCENARIOS: CompareScenario[] = [
   {
@@ -201,8 +138,8 @@ function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: Us
     canRun: Boolean(model?.canRun),
     monthlyUsd: diagnosis.economics.totalLocalMonthly,
     score: speedScore - diagnosis.economics.totalLocalMonthly * 0.2,
-    label: model?.canRun ? formatMoney(diagnosis.economics.totalLocalMonthly, scenarioUsage, 2) : 'No corre',
-    sublabel: model?.canRun ? `${model.speed} · ${plan.profile.vramGB}GB VRAM` : `${plan.profile.vramGB}GB VRAM / ${plan.profile.ramGB}GB RAM`,
+    label: model?.canRun ? formatMoney(diagnosis.economics.totalLocalMonthly, scenarioUsage, 2) : t('compare.noRun'),
+    sublabel: model?.canRun ? `${model.speed} - ${plan.profile.vramGB}GB VRAM` : `${plan.profile.vramGB}GB VRAM / ${plan.profile.ramGB}GB RAM`,
   };
 }
 
@@ -214,9 +151,9 @@ function winnerFor(a: PlanResult, b: PlanResult): 'a' | 'b' | 'tie' {
   return a.score > b.score ? 'a' : 'b';
 }
 
-function resultBadge(result: PlanResult) {
+function resultBadge(result: PlanResult, t: (key: string) => string) {
   if (!result.canRun) {
-    return <span className="inline-flex items-center gap-1 rounded-full border border-[#f3a6a6]/40 bg-[#f3a6a6]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#f3a6a6]"><XCircle className="h-3 w-3" />No corre</span>;
+    return <span className="inline-flex items-center gap-1 rounded-full border border-[#f3a6a6]/40 bg-[#f3a6a6]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#f3a6a6]"><XCircle className="h-3 w-3" />{t('compare.noRun')}</span>;
   }
 
   return <span className="inline-flex items-center gap-1 rounded-full border border-[#7dd3fc]/40 bg-[#7dd3fc]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7dd3fc]"><CheckCircle2 className="h-3 w-3" />OK</span>;
@@ -224,6 +161,31 @@ function resultBadge(result: PlanResult) {
 
 export function ComparisonPage({ hardware, usage }: Props) {
   const { t } = useLanguage();
+  const [apiOptions, setApiOptions] = useState<ApiOption[]>(FALLBACK_API_OPTIONS);
+  const [datasetSource, setDatasetSource] = useState<'remote' | 'fallback'>('fallback');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadApiOptions()
+      .then((options) => {
+        if (!cancelled && options.length > 0) {
+          setApiOptions(options);
+          setDatasetSource('remote');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setApiOptions(FALLBACK_API_OPTIONS);
+          setDatasetSource('fallback');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const currentHardware: HardwareOption = {
     id: 'current',
     kind: 'hardware',
@@ -231,7 +193,7 @@ export function ComparisonPage({ hardware, usage }: Props) {
     detail: `${hardware.vramGB}GB VRAM / ${hardware.ramGB}GB RAM`,
     profile: hardware,
   };
-  const planOptions = useMemo<PlanOption[]>(() => [currentHardware, ...HARDWARE_OPTIONS, ...API_OPTIONS], [hardware]);
+  const planOptions = useMemo<PlanOption[]>(() => [currentHardware, ...HARDWARE_OPTIONS, ...apiOptions], [apiOptions, hardware]);
   const [planAId, setPlanAId] = useState('current');
   const [planBId, setPlanBId] = useState('openai-mini');
   const [sortKey, setSortKey] = useState<SortKey>('winner');
@@ -266,18 +228,19 @@ export function ComparisonPage({ hardware, usage }: Props) {
   return (
     <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <section className="panel-card">
-        <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#8ba7c7]">A/B comparison</p>
-        <h2 className="font-mono text-4xl font-medium tracking-normal text-[#dbeafe] md:text-5xl">Compare planes</h2>
+        <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#8ba7c7]">{t('compare.eyebrow')}</p>
+        <h2 className="font-mono text-4xl font-medium tracking-normal text-[#dbeafe] md:text-5xl">{t('compare.title')}</h2>
         <p className="mt-4 max-w-3xl text-sm leading-6 text-[#8ba7c7]">
-          Elige dos opciones, API o hardware, y revisa cual gana en cada escenario. La logica combina costo mensual, compatibilidad local y calidad esperada.
+          {t('compare.description')}
         </p>
+        <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[#7dd3fc]">{datasetSource === 'remote' ? t('compare.dataset.remote') : t('compare.dataset.fallback')}</p>
       </section>
 
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)]">
         <div className="panel-card">
           <label className="micro-label mb-2">Plan A</label>
           <select className="control-field" value={planAId} onChange={(event) => setPlanAId(event.target.value)}>
-            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{plan.kind === 'api' ? 'API' : 'HW'} · {plan.name}</option>)}
+            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{plan.kind === 'api' ? 'API' : 'HW'} - {plan.name}</option>)}
           </select>
           <div className="mt-5 flex items-center justify-between gap-4">
             <div>
@@ -291,16 +254,16 @@ export function ComparisonPage({ hardware, usage }: Props) {
         <div className="panel-card-muted flex flex-col items-center justify-center gap-3 text-center">
           <Trophy className="h-7 w-7" />
           <div className="grid grid-cols-3 gap-3 text-xs">
-            <div><span className="block font-mono text-2xl">{counts.a}</span>A gana</div>
-            <div><span className="block font-mono text-2xl">{counts.tie}</span>Empate</div>
-            <div><span className="block font-mono text-2xl">{counts.b}</span>B gana</div>
+            <div><span className="block font-mono text-2xl">{counts.a}</span>{t('compare.aWins')}</div>
+            <div><span className="block font-mono text-2xl">{counts.tie}</span>{t('compare.tie')}</div>
+            <div><span className="block font-mono text-2xl">{counts.b}</span>{t('compare.bWins')}</div>
           </div>
         </div>
 
         <div className="panel-card">
           <label className="micro-label mb-2">Plan B</label>
           <select className="control-field" value={planBId} onChange={(event) => setPlanBId(event.target.value)}>
-            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{plan.kind === 'api' ? 'API' : 'HW'} · {plan.name}</option>)}
+            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{plan.kind === 'api' ? 'API' : 'HW'} - {plan.name}</option>)}
           </select>
           <div className="mt-5 flex items-center justify-between gap-4">
             <div>
@@ -315,16 +278,16 @@ export function ComparisonPage({ hardware, usage }: Props) {
       <section className="panel-card overflow-hidden">
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">Escenarios comparados</h3>
-            <p className="mt-2 text-sm text-[#8ba7c7]">Como en CanIRun, cada fila compara el mismo objetivo contra dos opciones.</p>
+            <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">{t('compare.scenarios')}</h3>
+            <p className="mt-2 text-sm text-[#8ba7c7]">{t('compare.scenarioHelp')}</p>
           </div>
           <div className="w-full md:w-56">
-            <label className="micro-label mb-2">Sort by</label>
+            <label className="micro-label mb-2">{t('compare.sortBy')}</label>
             <select className="control-field" value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)}>
-              <option value="winner">Winner</option>
-              <option value="name">Name A-Z</option>
-              <option value="cost">Lowest cost</option>
-              <option value="fit">Best fit</option>
+              <option value="winner">{t('compare.sort.winner')}</option>
+              <option value="name">{t('compare.sort.name')}</option>
+              <option value="cost">{t('compare.sort.cost')}</option>
+              <option value="fit">{t('compare.sort.fit')}</option>
             </select>
           </div>
         </div>
@@ -333,10 +296,10 @@ export function ComparisonPage({ hardware, usage }: Props) {
           <table className="w-full min-w-[820px] text-left text-xs">
             <thead className="border-b border-[#7dd3fc]/10 text-[#8ba7c7]">
               <tr>
-                <th className="pb-3 pr-4 font-medium">Escenario</th>
+                <th className="pb-3 pr-4 font-medium">{t('compare.table.scenario')}</th>
                 <th className="pb-3 pr-4 font-medium">Plan A</th>
                 <th className="pb-3 pr-4 font-medium">Plan B</th>
-                <th className="pb-3 font-medium">Resultado</th>
+                <th className="pb-3 font-medium">{t('compare.table.result')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#7dd3fc]/10">
@@ -344,24 +307,24 @@ export function ComparisonPage({ hardware, usage }: Props) {
                 <tr key={row.scenario.id} className="transition hover:bg-[#7dd3fc]/5">
                   <td className="py-4 pr-4 align-top">
                     <div className="font-medium text-[#eaf4ff]">{row.scenario.name}</div>
-                    <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#7dd3fc]">{row.scenario.modelName} {row.params && `· ${row.params}`}</div>
+                    <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#7dd3fc]">{row.scenario.modelName} {row.params && `- ${row.params}`}</div>
                     <div className="mt-2 max-w-[260px] text-[11px] leading-5 text-[#8ba7c7]">{row.scenario.task}</div>
                   </td>
                   <td className="py-4 pr-4 align-top">
-                    <div className="mb-2">{resultBadge(row.resultA)}</div>
+                    <div className="mb-2">{resultBadge(row.resultA, t)}</div>
                     <div className="font-mono text-lg text-[#dbeafe]">{row.resultA.label}</div>
                     <div className="mt-1 text-[11px] text-[#8ba7c7]">{row.resultA.sublabel}</div>
                   </td>
                   <td className="py-4 pr-4 align-top">
-                    <div className="mb-2">{resultBadge(row.resultB)}</div>
+                    <div className="mb-2">{resultBadge(row.resultB, t)}</div>
                     <div className="font-mono text-lg text-[#dbeafe]">{row.resultB.label}</div>
                     <div className="mt-1 text-[11px] text-[#8ba7c7]">{row.resultB.sublabel}</div>
                   </td>
                   <td className="py-4 align-top">
                     {row.winner === 'tie' ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[#f0d48a]/40 bg-[#f0d48a]/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#f0d48a]"><Equal className="h-3 w-3" />Tie</span>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#f0d48a]/40 bg-[#f0d48a]/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#f0d48a]"><Equal className="h-3 w-3" />{t('compare.tie')}</span>
                     ) : (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[#7dd3fc]/40 bg-[#7dd3fc]/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7dd3fc]">{row.winner === 'a' ? 'A wins' : 'B wins'}</span>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#7dd3fc]/40 bg-[#7dd3fc]/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7dd3fc]">{row.winner === 'a' ? t('compare.aWins') : t('compare.bWins')}</span>
                     )}
                   </td>
                 </tr>
