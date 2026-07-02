@@ -157,22 +157,6 @@ export function ResultsDashboard({ diagnosis }: Props) {
         </div>
       </div>
 
-      {diagnosis.assumptions.length > 0 && (
-        <section className="panel-card">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">{t('results.assumptions.title')}</h3>
-            <span className="rounded-full border border-[#7dd3fc]/40 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#7dd3fc]">Beta</span>
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {diagnosis.assumptions.map((assumption) => (
-              <div key={assumption} className="rounded-[14px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 px-4 py-3 text-sm leading-6 text-[#b7cbe2]">
-                {assumption}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {diagnosis.softwareRecommendations && diagnosis.softwareRecommendations.length > 0 && (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {diagnosis.softwareRecommendations.map((sw, idx) => (

@@ -92,25 +92,48 @@ function WhyPage() {
   );
 }
 
-function HowPage() {
+function HowPage({ assumptions }: { assumptions: string[] }) {
   return (
     <InfoPage eyebrow="Methodology" title="Como calculamos el veredicto">
       <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
         <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Costo API</h3>
-        <p>Estimamos requests por hora segun frecuencia, tokens por caso de uso y costo por millon de tokens segun preferencia de modelo.</p>
+        <p>Partimos de frecuencia, horas activas y caso de uso para estimar volumen mensual. El modelo de costo usa tokens aproximados por tarea y precio por millon de tokens segun el perfil seleccionado.</p>
       </div>
       <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
         <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Costo local</h3>
-        <p>Amortizamos el hardware a 24 meses y sumamos electricidad. La inferencia activa se estima como 25% de las horas de uso declaradas.</p>
+        <p>Si el equipo ya existe, tratamos el hardware como costo hundido y sumamos operacion electrica. Si planeas comprarlo, amortizamos el equipo a 24 meses y lo incluimos en la proyeccion.</p>
+      </div>
+      <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
+        <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Electricidad</h3>
+        <p>Calculamos consumo con una potencia estimada por tipo de GPU y asumimos inferencia activa durante una fraccion del tiempo declarado. La tarifa puede detectarse por pais o editarse manualmente.</p>
       </div>
       <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
         <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Compatibilidad</h3>
-        <p>El catalogo compara VRAM efectiva y RAM contra requerimientos aproximados de modelos GGUF Q4. Apple Silicon usa memoria unificada estimada.</p>
+        <p>Comparamos VRAM efectiva y RAM contra requerimientos aproximados de modelos GGUF Q4. Apple Silicon usa memoria unificada estimada; CPU puro se penaliza por velocidad.</p>
       </div>
       <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
         <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Moneda local</h3>
-        <p>El calculo base se mantiene en USD para consistencia. La moneda local se usa para mostrar resultados con una tasa aproximada editable.</p>
+        <p>El calculo base se mantiene en USD para consistencia. La moneda local solo transforma la visualizacion con una tasa aproximada editable por el usuario.</p>
       </div>
+      <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
+        <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Uso API importado</h3>
+        <p>Cuando importas CSV o JSON de consumo, la app resume gasto, tokens, proveedores y modelos. Ese analisis ayuda a detectar cargas repetitivas que podrian moverse a local o hibrido.</p>
+      </div>
+      {assumptions.length > 0 && (
+        <div className="rounded-[18px] border border-[#7dd3fc]/20 bg-[#07111f]/70 p-5 md:col-span-2">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h3 className="font-mono text-xl text-[#dbeafe]">Supuestos de este calculo</h3>
+            <span className="rounded-full border border-[#7dd3fc]/40 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#7dd3fc]">Beta</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {assumptions.map((assumption) => (
+              <div key={assumption} className="rounded-[14px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 px-4 py-3 text-sm leading-6 text-[#b7cbe2]">
+                {assumption}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </InfoPage>
   );
 }
@@ -247,7 +270,7 @@ export default function App() {
           )}
           {view === 'compare' && <ComparisonPage hardware={hardware} usage={usage} />}
           {view === 'why' && <WhyPage />}
-          {view === 'how' && <HowPage />}
+          {view === 'how' && <HowPage assumptions={diagnosis.assumptions} />}
         </main>
       </div>
     </div>

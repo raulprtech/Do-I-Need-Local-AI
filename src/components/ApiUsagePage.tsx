@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BarChart3, ChevronDown, ChevronUp, FileUp, RotateCcw, ShieldCheck } from 'lucide-react';
+import { BarChart3, FileUp, RotateCcw, X } from 'lucide-react';
 import { parseApiUsage, summarizeApiUsage, type ApiUsageGroup } from '../lib/apiUsageImport';
 import { HardwareProfile, UsageProfile } from '../lib/types';
 import { useLanguage } from '../lib/i18n';
@@ -51,8 +51,7 @@ function GroupList({ title, groups, usage }: { title: string; groups: ApiUsageGr
 export function ApiUsageImportPanel({ hardware, usage }: Props) {
   const { t } = useLanguage();
   const [rawInput, setRawInput] = useState('');
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const parsed = useMemo(() => {
     try {
@@ -75,7 +74,7 @@ export function ApiUsageImportPanel({ hardware, usage }: Props) {
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
     setRawInput(await file.text());
-    setIsExpanded(true);
+    setIsModalOpen(true);
   };
 
   return (
@@ -84,36 +83,18 @@ export function ApiUsageImportPanel({ hardware, usage }: Props) {
         <div>
           <p className="micro-label">{t('apiUsage.eyebrow')}</p>
           <h3 className="mt-2 font-mono text-xl font-medium tracking-normal text-[#dbeafe]">{t('apiUsage.title')}</h3>
-          <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">{t('apiUsage.description')}</p>
+          <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">
+            {hasRecords ? t('apiUsage.diagnosisReady') : t('apiUsage.diagnosisEmpty')}
+          </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="group relative inline-flex">
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#7dd3fc]/20 bg-[#07111f]/70 text-[#7dd3fc] transition hover:border-[#7dd3fc]/60 hover:bg-[#7dd3fc]/10 focus:outline-none focus:ring-2 focus:ring-[#7dd3fc]/40"
-              aria-label={t('apiUsage.localOnly')}
-              aria-expanded={isInfoOpen}
-              title={t('apiUsage.localOnly')}
-              onClick={() => setIsInfoOpen((value) => !value)}
-            >
-              <ShieldCheck className="h-4 w-4" />
-            </button>
-            <span className={[
-              "pointer-events-none absolute right-0 top-11 z-20 w-44 rounded-[12px] border border-[#7dd3fc]/20 bg-[#07111f] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#b7cbe2] shadow-2xl shadow-black/40 transition group-hover:opacity-100 group-focus-within:opacity-100",
-              isInfoOpen ? "opacity-100" : "opacity-0",
-            ].join(" ")}>
-              {t('apiUsage.localOnly')}
-            </span>
-          </span>
-          <button
-            type="button"
-            className="pill-button inline-flex items-center gap-2"
-            onClick={() => setIsExpanded((value) => !value)}
-          >
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            {isExpanded ? t('apiUsage.collapse') : t('apiUsage.expand')}
-          </button>
-        </div>
+        <button
+          type="button"
+          className="pill-button inline-flex shrink-0 items-center gap-2 self-start"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <FileUp className="h-4 w-4" />
+          {hasRecords ? t('apiUsage.edit') : t('apiUsage.open')}
+        </button>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -136,54 +117,78 @@ export function ApiUsageImportPanel({ hardware, usage }: Props) {
         </div>
       </div>
 
-      {isExpanded && (
-        <div className="mt-4 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="micro-label">CSV / JSON</label>
-            <div className="flex gap-2">
-              <label className="pill-button inline-flex cursor-pointer items-center gap-2">
-                <FileUp className="h-4 w-4" />
-                {t('apiUsage.upload')}
-                <input className="hidden" type="file" accept=".csv,.json,text/csv,application/json" onChange={(event) => handleFile(event.target.files?.[0])} />
-              </label>
-              <button type="button" className="pill-button inline-flex items-center gap-2" onClick={() => setRawInput(SAMPLE_CSV)}>
-                <RotateCcw className="h-4 w-4" />
-                {t('apiUsage.sample')}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02060d]/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="api-usage-modal-title">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[22px] border border-[#7dd3fc]/20 bg-[#07111f] p-5 shadow-2xl shadow-black/50 md:p-6">
+            <div className="flex flex-col gap-4 border-b border-[#7dd3fc]/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="micro-label">{t('apiUsage.eyebrow')}</p>
+                <h3 id="api-usage-modal-title" className="mt-2 font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">{t('apiUsage.title')}</h3>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-[#8ba7c7]">{t('apiUsage.description')}</p>
+              </div>
+              <button
+                type="button"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#7dd3fc]/20 text-[#eaf4ff] transition hover:border-[#7dd3fc]/60 hover:bg-[#7dd3fc]/10"
+                onClick={() => setIsModalOpen(false)}
+                aria-label={t('apiUsage.close')}
+              >
+                <X className="h-4 w-4" />
               </button>
             </div>
-          </div>
-          <textarea
-            className="min-h-[220px] w-full resize-y rounded-[16px] border border-[#7dd3fc]/20 bg-black/25 p-4 font-mono text-xs leading-5 text-[#eaf4ff] outline-none transition focus:border-[#7dd3fc]/70"
-            value={rawInput}
-            onChange={(event) => setRawInput(event.target.value)}
-            spellCheck={false}
-          />
-          <p className="text-xs leading-5 text-[#8ba7c7]">{t('apiUsage.formatHelp')}</p>
-          {error && <p className="rounded-[14px] border border-[#f3a6a6]/30 bg-[#f3a6a6]/10 px-4 py-2 text-xs text-[#ffd6d6]">{error}</p>}
 
-          <div className="rounded-[16px] border border-[#7dd3fc]/10 bg-[#07111f]/50 p-4">
-            <div className="flex items-start gap-3">
-              <span className="rounded-full border border-[#7dd3fc]/40 p-2 text-[#7dd3fc]"><BarChart3 className="h-4 w-4" /></span>
-              <div>
-                <h4 className="font-mono text-lg font-medium tracking-normal text-[#dbeafe]">{t('apiUsage.diagnosisTitle')}</h4>
-                <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">
-                  {hasRecords ? t('apiUsage.diagnosisReady') : t('apiUsage.diagnosisEmpty')}
-                </p>
+            <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <label className="micro-label">CSV / JSON</label>
+                  <div className="flex gap-2">
+                    <label className="pill-button inline-flex cursor-pointer items-center gap-2">
+                      <FileUp className="h-4 w-4" />
+                      {t('apiUsage.upload')}
+                      <input className="hidden" type="file" accept=".csv,.json,text/csv,application/json" onChange={(event) => handleFile(event.target.files?.[0])} />
+                    </label>
+                    <button type="button" className="pill-button inline-flex items-center gap-2" onClick={() => setRawInput(SAMPLE_CSV)}>
+                      <RotateCcw className="h-4 w-4" />
+                      {t('apiUsage.sample')}
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  className="min-h-[330px] w-full resize-y rounded-[16px] border border-[#7dd3fc]/20 bg-black/25 p-4 font-mono text-xs leading-5 text-[#eaf4ff] outline-none transition focus:border-[#7dd3fc]/70"
+                  value={rawInput}
+                  onChange={(event) => setRawInput(event.target.value)}
+                  spellCheck={false}
+                />
+                <p className="text-xs leading-5 text-[#8ba7c7]">{t('apiUsage.formatHelp')}</p>
+                {error && <p className="rounded-[14px] border border-[#f3a6a6]/30 bg-[#f3a6a6]/10 px-4 py-2 text-xs text-[#ffd6d6]">{error}</p>}
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="rounded-[16px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="rounded-full border border-[#7dd3fc]/40 p-2 text-[#7dd3fc]"><BarChart3 className="h-4 w-4" /></span>
+                    <div>
+                      <h4 className="font-mono text-lg font-medium tracking-normal text-[#dbeafe]">{t('apiUsage.diagnosisTitle')}</h4>
+                      <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">
+                        {hasRecords ? t('apiUsage.diagnosisReady') : t('apiUsage.diagnosisEmpty')}
+                      </p>
+                      {hasRecords && (
+                        <p className="mt-2 text-[10px] leading-4 text-[#8ba7c7]">
+                          {formatNumber(summary.totalTokens)} tokens - {formatNumber(summary.totalRequests)} requests - {summary.records.length} rows
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {hasRecords && (
-                  <p className="mt-2 text-[10px] leading-4 text-[#8ba7c7]">
-                    {formatNumber(summary.totalTokens)} tokens - {formatNumber(summary.totalRequests)} requests - {summary.records.length} rows
-                  </p>
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                    <GroupList title={t('apiUsage.byProvider')} groups={summary.byProvider} usage={usage} />
+                    <GroupList title={t('apiUsage.byModel')} groups={summary.byModel} usage={usage} />
+                  </div>
                 )}
               </div>
             </div>
           </div>
-
-          {hasRecords && (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <GroupList title={t('apiUsage.byProvider')} groups={summary.byProvider} usage={usage} />
-              <GroupList title={t('apiUsage.byModel')} groups={summary.byModel} usage={usage} />
-            </div>
-          )}
         </div>
       )}
     </div>
