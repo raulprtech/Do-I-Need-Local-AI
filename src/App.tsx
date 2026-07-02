@@ -11,14 +11,6 @@ import { useLanguage } from './lib/i18n';
 
 type View = 'dashboard' | 'compare' | 'about';
 
-function encodeState(hardware: HardwareProfile, usage: UsageProfile) {
-  try {
-    const data = { h: hardware, u: usage };
-    return btoa(JSON.stringify(data));
-  } catch (e) {
-    return '';
-  }
-}
 
 function decodeState(encoded: string) {
   try {
@@ -142,7 +134,6 @@ function AboutPage({ assumptions }: { assumptions: string[] }) {
 
 export default function App() {
   const { t } = useLanguage();
-  const [shared, setShared] = useState(false);
   const [view, setView] = useState<View>('dashboard');
   const [hardware, setHardware] = useState<HardwareProfile>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -217,14 +208,6 @@ export default function App() {
 
   const diagnosis = useMemo(() => evaluateSystem(hardware, usage, t), [hardware, usage, t]);
 
-  const handleShare = () => {
-    const s = encodeState(hardware, usage);
-    const url = new URL(window.location.href);
-    url.searchParams.set('s', s);
-    navigator.clipboard.writeText(url.toString());
-    setShared(true);
-    setTimeout(() => setShared(false), 2000);
-  };
 
   const handleNavigate = (nextView: View, targetId?: string) => {
     setView(nextView);
@@ -238,7 +221,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#07111f] font-sans">
       <div className="dashboard-shell flex min-h-screen w-full flex-col overflow-hidden">
-        <Header onShare={handleShare} shared={shared} onNavigate={handleNavigate} activeView={view} />
+        <Header onNavigate={handleNavigate} activeView={view} />
 
         <main className="flex-1 w-full px-5 pb-6 pt-5 md:px-10 md:pb-10 md:pt-8">
           {view === 'dashboard' && (
