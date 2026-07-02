@@ -113,6 +113,14 @@ function HowPage({ assumptions }: { assumptions: string[] }) {
         <p>Comparamos VRAM efectiva y RAM contra requerimientos aproximados de modelos GGUF Q4. Apple Silicon usa memoria unificada estimada; CPU puro se penaliza por velocidad.</p>
       </div>
       <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
+        <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Puntajes de inteligencia</h3>
+        <p>Usamos un score relativo de 0 a 100 por modelo y caso de uso. El modelo frontera se estima desde el modelo cloud elegido en el perfil avanzado; si no hay seleccion, usamos una referencia segun tamano preferido. El mejor local compatible se compara por caso de uso ideal. Estos puntajes son heuristicas del dataset, marcadas por confianza, y deben mejorar con benchmarks revisados.</p>
+      </div>
+      <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
+        <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Confianza del dataset</h3>
+        <p>Los precios, requisitos y scores pueden venir de fuentes oficiales, verificadas, comunidad o estimaciones. La app puede usar datos estimados para orientar, pero la metodologia separa confianza para que despues puedas filtrar escenarios enterprise mas estrictos.</p>
+      </div>
+      <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-5">
         <h3 className="mb-3 font-mono text-xl text-[#dbeafe]">Moneda local</h3>
         <p>El calculo base se mantiene en USD para consistencia. La moneda local solo transforma la visualizacion con una tasa aproximada editable por el usuario.</p>
       </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Diagnosis } from '../lib/types';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AlertTriangle, CheckCircle2, GitBranch, XCircle } from 'lucide-react';
@@ -9,6 +10,7 @@ interface Props {
 
 export function ResultsDashboard({ diagnosis }: Props) {
   const { t } = useLanguage();
+  const [showAllModels, setShowAllModels] = useState(false);
   const { mainLimitation, recommendedModels, economics, overallSummary, intelligenceComparison, frontierScore, bestLocalScore } = diagnosis;
   const exchangeRate = economics.exchangeRateFromUsd || 1;
   const formatMoney = (usd: number, maximumFractionDigits = 0) => {
@@ -21,6 +23,9 @@ export function ResultsDashboard({ diagnosis }: Props) {
     apiCost: point.apiCost * exchangeRate,
     localCost: point.localCost * exchangeRate,
   }));
+  const compatibleModels = recommendedModels.filter((model) => model.canRun && model.speed !== 'unusable');
+  const visibleModels = showAllModels || compatibleModels.length === 0 ? recommendedModels : compatibleModels;
+  const hasHiddenModels = recommendedModels.length > visibleModels.length;
 
   return (
     <div className="flex min-w-0 flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -64,9 +69,24 @@ export function ResultsDashboard({ diagnosis }: Props) {
 
       <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
         <div className="panel-card flex min-h-[420px] flex-col overflow-hidden">
-          <div className="mb-5 flex items-center justify-between">
-            <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">{t('results.models.title')}</h3>
-            <span className="rounded-full border border-[#7dd3fc]/70 px-3 py-1 text-xs text-[#7dd3fc]">GGUF Q4</span>
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="font-mono text-2xl font-medium tracking-normal text-[#dbeafe]">{t('results.models.title')}</h3>
+              <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">
+                {showAllModels ? t('results.models.showingAll') : t('results.models.showingCompatible')}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-full border border-[#7dd3fc]/30 px-3 py-1 text-xs text-[#7dd3fc] transition hover:border-[#7dd3fc]/70 hover:bg-[#7dd3fc]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => setShowAllModels((value) => !value)}
+                disabled={!showAllModels && !hasHiddenModels}
+              >
+                {showAllModels ? t('results.models.showCompatible') : t('results.models.showAll')}
+              </button>
+              <span className="rounded-full border border-[#7dd3fc]/70 px-3 py-1 text-xs text-[#7dd3fc]">GGUF Q4</span>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-xs">
@@ -79,7 +99,7 @@ export function ResultsDashboard({ diagnosis }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#7dd3fc]/10">
-                {recommendedModels.map((model, idx) => (
+                {visibleModels.map((model, idx) => (
                   <tr key={idx} className={`transition hover:bg-[#7dd3fc]/5 ${!model.canRun ? 'text-[#53677f]' : 'text-[#eaf4ff]'}`}>
                     <td className="py-4 pr-4 align-top">
                       <div className="font-medium">{model.name}</div>
