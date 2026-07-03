@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Diagnosis, ModelCapability } from '../lib/types';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { AlertTriangle, CheckCircle2, Copy, ExternalLink, GitBranch, Info, X, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, ExternalLink, GitBranch, X, XCircle } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface Props {
@@ -101,19 +101,21 @@ export function ResultsDashboard({ diagnosis }: Props) {
               </thead>
               <tbody className="divide-y divide-[#7dd3fc]/10">
                 {visibleModels.map((model, idx) => (
-                  <tr key={idx} className={`transition hover:bg-[#7dd3fc]/5 ${!model.canRun ? 'text-[#53677f]' : 'text-[#eaf4ff]'}`}>
+                  <tr
+                    key={idx}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedModel(model)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedModel(model);
+                      }
+                    }}
+                    className={`cursor-pointer transition hover:bg-[#7dd3fc]/5 focus:bg-[#7dd3fc]/5 focus:outline-none ${!model.canRun ? 'text-[#53677f]' : 'text-[#eaf4ff]'}`}
+                  >
                     <td className="py-4 pr-4 align-top">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{model.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedModel(model)}
-                          className="inline-flex h-6 items-center gap-1 rounded-full border border-[#7dd3fc]/20 px-2 text-[10px] text-[#7dd3fc] transition hover:border-[#7dd3fc]/60 hover:bg-[#7dd3fc]/10"
-                        >
-                          <Info className="h-3 w-3" />
-                          {t('results.models.details')}
-                        </button>
-                      </div>
+                      <div className="font-medium">{model.name}</div>
                       <div className="mt-1 max-w-[260px] text-[10px] leading-4 text-[#8ba7c7]">{model.notes}</div>
                     </td>
                     <td className="py-4 pr-4 align-top">
