@@ -1,11 +1,11 @@
 import React from 'react';
-import { HardwareProfile, UsageProfile, GPUMaker, UsageGoal, UsageFrequency, CloudModelId, UsageModelSelection } from '../lib/types';
-import { CLOUD_MODEL_PROFILES, HARDWARE_PRESETS } from '../lib/calculator';
+import { HardwareProfile, UsageProfile, GPUMaker, UsageGoal, UsageFrequency, CloudModelId, CloudPlanId, UsageModelSelection } from '../lib/types';
+import { CLOUD_MODEL_PROFILES, CLOUD_PLAN_PROFILES, HARDWARE_PRESETS } from '../lib/calculator';
 import { detectHardwareProfile } from '../lib/hardwareDetection';
 import { CURRENCY_OPTIONS, detectCountryDefaults } from '../lib/locale';
 import { useLanguage } from '../lib/i18n';
 import { ApiUsageImportPanel } from './ApiUsagePage';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
 
 interface Props {
   hardware: HardwareProfile;
@@ -21,6 +21,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
   const [electricityDetectionStatus, setElectricityDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
   const [gpuDetectionStatus, setGpuDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
   const [isModelMixOpen, setIsModelMixOpen] = React.useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = React.useState(false);
 
   const detectElectricityCost = async () => {
     setIsDetectingElectricity(true);
@@ -69,6 +70,9 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
         modelId: usage.modelSizePreference === 'large' ? 'claude-sonnet' : 'gpt-4o-mini',
         goal: usage.goal,
         hoursPerDay: Math.min(usage.hoursPerDay, 2),
+        billingMode: 'usage',
+        planId: 'chatgpt-plus',
+        monthlyPlanUsd: CLOUD_PLAN_PROFILES['chatgpt-plus'].monthlyUsd,
       },
     ]);
   };
@@ -258,20 +262,6 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
             />
           </div>
 
-          <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="micro-label">{t('input.usage.advancedModels')}</p>
-                <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">
-                  {activeModelMix.length > 0 ? t('input.usage.advancedModelsActive') : t('input.usage.advancedModelsHelp')}
-                </p>
-              </div>
-              <button type="button" className="pill-button shrink-0" onClick={() => setIsModelMixOpen(true)}>
-                {activeModelMix.length > 0 ? t('input.usage.advancedModelsEdit') : t('input.usage.advancedModelsOpen')}
-              </button>
-            </div>
-          </div>
-
           <div>
             <label className="micro-label mb-2">{t('input.usage.currency')}</label>
             <select
@@ -326,7 +316,38 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
             </div>
           </div>
 
-          <ApiUsageImportPanel hardware={hardware} usage={usage} />
+
+          <div className="rounded-[18px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="micro-label">{t('input.usage.advancedOptions')}</p>
+                <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">{t('input.usage.advancedOptionsHelp')}</p>
+              </div>
+              <button type="button" className="pill-button inline-flex shrink-0 items-center gap-2" onClick={() => setIsAdvancedOpen((value) => !value)}>
+                <SlidersHorizontal className="h-4 w-4" />
+                {isAdvancedOpen ? t('input.usage.advancedOptionsHide') : t('input.usage.advancedOptionsShow')}
+              </button>
+            </div>
+
+            {isAdvancedOpen && (
+              <div className="mt-4 grid grid-cols-1 gap-4">
+                <div className="rounded-[16px] border border-[#7dd3fc]/10 bg-[#07111f]/60 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="micro-label">{t('input.usage.advancedModels')}</p>
+                      <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">
+                        {activeModelMix.length > 0 ? t('input.usage.advancedModelsActive') : t('input.usage.advancedModelsHelp')}
+                      </p>
+                    </div>
+                    <button type="button" className="pill-button shrink-0" onClick={() => setIsModelMixOpen(true)}>
+                      {activeModelMix.length > 0 ? t('input.usage.advancedModelsEdit') : t('input.usage.advancedModelsOpen')}
+                    </button>
+                  </div>
+                </div>
+                <ApiUsageImportPanel hardware={hardware} usage={usage} />
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -347,7 +368,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
             <div className="mt-5 space-y-4">
               {activeModelMix.map((item) => (
                 <div key={item.id} className="rounded-[16px] border border-[#7dd3fc]/10 bg-[#7dd3fc]/5 p-4">
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.1fr_1fr_0.75fr_auto] md:items-end">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[1.05fr_0.95fr_0.85fr_0.9fr_0.75fr_auto] xl:items-end">
                     <div>
                       <label className="micro-label mb-2">{t('input.usage.advancedModels.model')}</label>
                       <select className="control-field" value={item.modelId} onChange={(event) => updateModelMixItem(item.id, { modelId: event.target.value as CloudModelId })}>
@@ -367,8 +388,39 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
                       </select>
                     </div>
                     <div>
-                      <label className="micro-label mb-2">{t('input.usage.advancedModels.hours')}</label>
-                      <input className="control-field" type="number" min="0" max="24" step="0.5" value={item.hoursPerDay} onChange={(event) => updateModelMixItem(item.id, { hoursPerDay: Number(event.target.value) })} />
+                      <label className="micro-label mb-2">{t('input.usage.advancedModels.billing')}</label>
+                      <select className="control-field" value={item.billingMode} onChange={(event) => updateModelMixItem(item.id, { billingMode: event.target.value as UsageModelSelection['billingMode'] })}>
+                        <option value="usage">{t('input.usage.advancedModels.billing.usage')}</option>
+                        <option value="plan">{t('input.usage.advancedModels.billing.plan')}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="micro-label mb-2">{t('input.usage.advancedModels.plan')}</label>
+                      <select
+                        className="control-field disabled:opacity-50"
+                        value={item.planId}
+                        disabled={item.billingMode !== 'plan'}
+                        onChange={(event) => {
+                          const planId = event.target.value as CloudPlanId;
+                          updateModelMixItem(item.id, { planId, monthlyPlanUsd: CLOUD_PLAN_PROFILES[planId].monthlyUsd });
+                        }}
+                      >
+                        {Object.entries(CLOUD_PLAN_PROFILES).map(([id, plan]) => (
+                          <option key={id} value={id}>{plan.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="micro-label mb-2">{item.billingMode === 'plan' ? t('input.usage.advancedModels.planCost') : t('input.usage.advancedModels.hours')}</label>
+                      <input
+                        className="control-field"
+                        type="number"
+                        min="0"
+                        max={item.billingMode === 'plan' ? undefined : 24}
+                        step={item.billingMode === 'plan' ? 1 : 0.5}
+                        value={item.billingMode === 'plan' ? item.monthlyPlanUsd : item.hoursPerDay}
+                        onChange={(event) => updateModelMixItem(item.id, item.billingMode === 'plan' ? { monthlyPlanUsd: Number(event.target.value) } : { hoursPerDay: Number(event.target.value) })}
+                      />
                     </div>
                     <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full border border-[#f3a6a6]/30 text-[#f3a6a6] transition hover:bg-[#f3a6a6]/10" onClick={() => removeModelMixItem(item.id)} aria-label={t('input.usage.advancedModels.remove')}>
                       <Trash2 className="h-4 w-4" />

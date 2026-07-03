@@ -17,12 +17,17 @@ export interface HardwareProfile {
 export type UsageGoal = 'chat' | 'coding' | 'agents' | 'rag' | 'vision' | 'embedding';
 export type UsageFrequency = 'occasional' | 'daily' | 'heavy' | 'production';
 export type CloudModelId = 'gpt-4o' | 'claude-sonnet' | 'gemini-pro' | 'deepseek-chat' | 'gpt-4o-mini';
+export type ApiBillingMode = 'usage' | 'plan';
+export type CloudPlanId = 'chatgpt-plus' | 'chatgpt-pro' | 'claude-pro' | 'claude-max' | 'gemini-advanced' | 'cursor-pro' | 'custom';
 
 export interface UsageModelSelection {
   id: string;
   modelId: CloudModelId;
   goal: UsageGoal;
   hoursPerDay: number;
+  billingMode: ApiBillingMode;
+  planId: CloudPlanId;
+  monthlyPlanUsd: number;
 }
 
 export interface UsageProfile {

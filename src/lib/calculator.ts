@@ -1,5 +1,5 @@
 import { evaluateCatalogEntry, MODEL_CATALOG } from './modelCatalog';
-import { HardwareProfile, UsageProfile, Diagnosis, EconomicAnalysis, SoftwareRecommendation, CloudModelId, UsageGoal } from './types';
+import { HardwareProfile, UsageProfile, Diagnosis, EconomicAnalysis, SoftwareRecommendation, CloudModelId, UsageGoal, CloudPlanId, UsageModelSelection } from './types';
 
 export const HARDWARE_PRESETS: Record<string, Partial<HardwareProfile>> = {
   'custom': { preset: 'custom' },
@@ -19,6 +19,16 @@ export const CLOUD_MODEL_PROFILES: Record<CloudModelId, { name: string; score: n
   'gpt-4o-mini': { name: 'GPT-4o mini', score: 72, ratePerMillion: 0.25 },
 };
 
+export const CLOUD_PLAN_PROFILES: Record<CloudPlanId, { name: string; monthlyUsd: number }> = {
+  'chatgpt-plus': { name: 'ChatGPT Plus', monthlyUsd: 20 },
+  'chatgpt-pro': { name: 'ChatGPT Pro', monthlyUsd: 200 },
+  'claude-pro': { name: 'Claude Pro', monthlyUsd: 20 },
+  'claude-max': { name: 'Claude Max', monthlyUsd: 100 },
+  'gemini-advanced': { name: 'Gemini Advanced', monthlyUsd: 20 },
+  'cursor-pro': { name: 'Cursor Pro', monthlyUsd: 20 },
+  'custom': { name: 'Custom plan', monthlyUsd: 0 },
+};
+
 function getTokensPerRequest(goal: UsageGoal): number {
   const tokensPerRequest: Record<UsageGoal, number> = {
     chat: 1200,
@@ -30,6 +40,18 @@ function getTokensPerRequest(goal: UsageGoal): number {
   };
 
   return tokensPerRequest[goal];
+}
+
+function getModelMixItemCost(item: UsageModelSelection, usage: UsageProfile, requestsPerHour: Record<UsageProfile['frequency'], number>, activeDaysPerMonth: Record<UsageProfile['frequency'], number>): number {
+  if (item.billingMode === 'plan') {
+    const planPrice = item.monthlyPlanUsd || CLOUD_PLAN_PROFILES[item.planId]?.monthlyUsd || 0;
+    return Math.max(0, planPrice);
+  }
+
+  const profile = CLOUD_MODEL_PROFILES[item.modelId] ?? CLOUD_MODEL_PROFILES['gpt-4o-mini'];
+  const requestsPerMonth = item.hoursPerDay * requestsPerHour[usage.frequency] * activeDaysPerMonth[usage.frequency];
+  const tokensPerMonth = requestsPerMonth * getTokensPerRequest(item.goal);
+  return (tokensPerMonth / 1000000) * profile.ratePerMillion;
 }
 
 function estimateApiCostMonthly(usage: UsageProfile): number {
@@ -52,14 +74,9 @@ function estimateApiCostMonthly(usage: UsageProfile): number {
     any: 1.5,
   };
 
-  const activeModelMix = usage.modelMix?.filter((item) => item.hoursPerDay > 0) ?? [];
+  const activeModelMix = usage.modelMix?.filter((item) => item.hoursPerDay > 0 || (item.billingMode === 'plan' && item.monthlyPlanUsd > 0)) ?? [];
   if (activeModelMix.length > 0) {
-    return activeModelMix.reduce((total, item) => {
-      const profile = CLOUD_MODEL_PROFILES[item.modelId] ?? CLOUD_MODEL_PROFILES['gpt-4o-mini'];
-      const requestsPerMonth = item.hoursPerDay * requestsPerHour[usage.frequency] * activeDaysPerMonth[usage.frequency];
-      const tokensPerMonth = requestsPerMonth * getTokensPerRequest(item.goal);
-      return total + ((tokensPerMonth / 1000000) * profile.ratePerMillion);
-    }, 0);
+    return activeModelMix.reduce((total, item) => total + getModelMixItemCost(item, usage, requestsPerHour, activeDaysPerMonth), 0);
   }
 
   const requestsPerMonth =
@@ -101,10 +118,10 @@ export function evaluateSystem(hardware: HardwareProfile, usage: UsageProfile, t
   const hasUsefulLocalOption = canRunLocal && usefulLocalModels.length > 0;
 
   const monthlyApiCost = estimateApiCostMonthly(usage);
-  const activeModelMix = usage.modelMix?.filter((item) => item.hoursPerDay > 0) ?? [];
+  const activeModelMix = usage.modelMix?.filter((item) => item.hoursPerDay > 0 || (item.billingMode === 'plan' && item.monthlyPlanUsd > 0)) ?? [];
   const frontierScore = activeModelMix.length > 0
-    ? activeModelMix.reduce((total, item) => total + ((CLOUD_MODEL_PROFILES[item.modelId]?.score ?? 72) * item.hoursPerDay), 0) /
-      activeModelMix.reduce((total, item) => total + item.hoursPerDay, 0)
+    ? activeModelMix.reduce((total, item) => total + ((CLOUD_MODEL_PROFILES[item.modelId]?.score ?? 72) * Math.max(item.hoursPerDay, 1)), 0) /
+      activeModelMix.reduce((total, item) => total + Math.max(item.hoursPerDay, 1), 0)
     : usage.modelSizePreference === 'large'
       ? 95
       : usage.modelSizePreference === 'small'

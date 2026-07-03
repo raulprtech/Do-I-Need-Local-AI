@@ -75,10 +75,17 @@ assert.ok(!heavyIntegrated.softwareRecommendations.some((software) => software.n
 
 const advancedMix = evaluateSystem(
   baseHardware,
-  { ...baseUsage, modelMix: [{ id: 'primary', modelId: 'claude-sonnet', goal: 'coding', hoursPerDay: 3 }] },
+  { ...baseUsage, modelMix: [{ id: 'primary', modelId: 'claude-sonnet', goal: 'coding', hoursPerDay: 3, billingMode: 'usage', planId: 'claude-pro', monthlyPlanUsd: 20 }] },
   t,
 );
 assert.ok(advancedMix.economics.monthlyApiCost > ownedHardwareCost.economics.monthlyApiCost);
 assert.equal(advancedMix.intelligenceComparison[0].name, 'input.usage.goal.coding');
+
+const planMix = evaluateSystem(
+  baseHardware,
+  { ...baseUsage, modelMix: [{ id: 'plan', modelId: 'gpt-4o', goal: 'chat', hoursPerDay: 1, billingMode: 'plan', planId: 'chatgpt-plus', monthlyPlanUsd: 20 }] },
+  t,
+);
+assert.equal(planMix.economics.monthlyApiCost, 20);
 
 console.log('calculator tests passed');
