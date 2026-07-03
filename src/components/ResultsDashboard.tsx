@@ -291,6 +291,14 @@ export function ResultsDashboard({ diagnosis }: Props) {
                     <span className="micro-label mb-1">{t('results.models.license')}</span>
                     <span className="block text-xs leading-5 text-[#8ba7c7]">{selectedModel.license}</span>
                   </div>
+                  {(selectedModel.confidence || selectedModel.lastCheckedAt) && (
+                    <div className="sm:col-span-4">
+                      <span className="micro-label mb-1">{t('results.models.dataQuality')}</span>
+                      <span className="block text-xs leading-5 text-[#8ba7c7]">
+                        {selectedModel.confidence ?? 'dataset'}{selectedModel.lastCheckedAt ? ` - ${selectedModel.lastCheckedAt}` : ''}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {selectedModel.specs.map((spec) => (

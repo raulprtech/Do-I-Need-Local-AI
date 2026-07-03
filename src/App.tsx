@@ -4,9 +4,11 @@ import { InputForms } from './components/InputForms';
 import { ResultsDashboard } from './components/ResultsDashboard';
 import { ComparisonPage } from './components/ComparisonPage';
 import { evaluateSystem } from './lib/calculator';
+import { loadLocalModelCatalog } from './lib/infraDataset';
+import { MODEL_CATALOG } from './lib/modelCatalog';
 import { detectHardwareProfile } from './lib/hardwareDetection';
 import { DEFAULT_COUNTRY, detectCountryDefaults } from './lib/locale';
-import { HardwareProfile, UsageProfile } from './lib/types';
+import { HardwareProfile, ModelCatalogEntry, UsageProfile } from './lib/types';
 import { useLanguage } from './lib/i18n';
 
 type View = 'dashboard' | 'compare' | 'about';
@@ -142,6 +144,7 @@ function AboutPage({ assumptions }: { assumptions: string[] }) {
 export default function App() {
   const { t } = useLanguage();
   const [view, setView] = useState<View>('dashboard');
+  const [modelCatalog, setModelCatalog] = useState<ModelCatalogEntry[]>(MODEL_CATALOG);
   const [hardware, setHardware] = useState<HardwareProfile>(() => {
     const params = new URLSearchParams(window.location.search);
     const s = params.get('s');
@@ -185,6 +188,19 @@ export default function App() {
   });
 
   useEffect(() => {
+    let cancelled = false;
+    loadLocalModelCatalog()
+      .then((catalog) => {
+        if (!cancelled && catalog.length > 0) setModelCatalog(catalog);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('hardware_v2', JSON.stringify(hardware));
     localStorage.setItem('usage_v2', JSON.stringify(usage));
   }, [hardware, usage]);
@@ -213,7 +229,7 @@ export default function App() {
       .catch(() => undefined);
   }, []);
 
-  const diagnosis = useMemo(() => evaluateSystem(hardware, usage, t), [hardware, usage, t]);
+  const diagnosis = useMemo(() => evaluateSystem(hardware, usage, t, modelCatalog), [hardware, usage, t, modelCatalog]);
 
 
   const handleNavigate = (nextView: View, targetId?: string) => {
@@ -260,7 +276,7 @@ export default function App() {
               </div>
             </>
           )}
-          {view === 'compare' && <ComparisonPage hardware={hardware} usage={usage} />}
+          {view === 'compare' && <ComparisonPage hardware={hardware} usage={usage} modelCatalog={modelCatalog} />}
           {view === 'about' && <AboutPage assumptions={diagnosis.assumptions} />}
         </main>
       </div>

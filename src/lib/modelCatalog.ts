@@ -246,5 +246,7 @@ export function evaluateCatalogEntry(
     installCommands: model.installCommands,
     specs: model.specs,
     benchmarkSummary: model.benchmarkSummary,
+    confidence: model.confidence,
+    lastCheckedAt: model.lastCheckedAt,
   };
 }

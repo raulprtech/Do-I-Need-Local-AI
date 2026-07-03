@@ -141,6 +141,7 @@ const translations: Record<Language, Record<string, string>> = {
     'results.models.copy': 'Copiar',
     'results.models.description': 'Descripcion',
     'results.models.useCases': 'Casos de uso',
+    'results.models.dataQuality': 'Calidad del dato',
     'results.models.speed.fast': 'Rápido',
     'results.models.speed.acceptable': 'Aceptable',
     'results.models.speed.slow': 'Lento',
@@ -151,6 +152,7 @@ const translations: Record<Language, Record<string, string>> = {
     'results.software.download': 'Descargar',
     
     // Calculator messages
+    'calc.models.dataset': 'Datos cargados desde ai-infra-dataset; revisa confianza y fecha de verificacion.',
     'calc.models.phi3': 'Ideal para hardware modesto. Rápido y eficiente.',
     'calc.models.llama3_8b.gpu': 'Corre 100% en GPU, muy rápido.',
     'calc.models.llama3_8b.cpu': 'Correrá usando RAM (CPU), será más lento.',
@@ -315,6 +317,7 @@ const translations: Record<Language, Record<string, string>> = {
     'results.models.copy': 'Copy',
     'results.models.description': 'Description',
     'results.models.useCases': 'Use cases',
+    'results.models.dataQuality': 'Data quality',
     'results.models.speed.fast': 'Fast',
     'results.models.speed.acceptable': 'Acceptable',
     'results.models.speed.slow': 'Slow',
@@ -325,6 +328,7 @@ const translations: Record<Language, Record<string, string>> = {
     'results.software.download': 'Download',
     
     // Calculator messages
+    'calc.models.dataset': 'Data loaded from ai-infra-dataset; check confidence and verification date.',
     'calc.models.phi3': 'Ideal for modest hardware. Fast and efficient.',
     'calc.models.llama3_8b.gpu': 'Runs 100% on GPU, very fast.',
     'calc.models.llama3_8b.cpu': 'Will run using RAM (CPU), which is slower.',

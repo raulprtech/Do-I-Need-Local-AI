@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Cloud, Cpu, Equal, Server, Trophy, XCircle } from 'lucide-react';
 import { evaluateSystem } from '../lib/calculator';
 import { MODEL_CATALOG } from '../lib/modelCatalog';
-import { HardwareProfile, UsageProfile } from '../lib/types';
+import { HardwareProfile, ModelCatalogEntry, UsageProfile } from '../lib/types';
 import { useLanguage } from '../lib/i18n';
 import { ApiOption, CloudRentalOption, CLOUD_RENTAL_OPTIONS, FALLBACK_API_OPTIONS, HARDWARE_OPTIONS, HardwareOption, loadApiOptions, loadCloudRentalOptions } from '../lib/infraDataset';
 
 interface Props {
   hardware: HardwareProfile;
   usage: UsageProfile;
+  modelCatalog: ModelCatalogEntry[];
 }
 
 type PlanKind = 'api' | 'hardware' | 'cloud-rental';
@@ -119,7 +120,7 @@ function planKindLabel(kind: PlanKind) {
   return 'HW';
 }
 
-function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: UsageProfile, t: (key: string) => string): PlanResult {
+function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: UsageProfile, t: (key: string) => string, modelCatalog: ModelCatalogEntry[]): PlanResult {
   const scenarioUsage = applyScenario(baseUsage, scenario);
   const requests = requestsPerMonth(scenarioUsage);
 
@@ -137,7 +138,7 @@ function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: Us
   }
 
   if (plan.kind === 'cloud-rental') {
-    const diagnosis = evaluateSystem(plan.profile, scenarioUsage, t);
+    const diagnosis = evaluateSystem(plan.profile, scenarioUsage, t, modelCatalog);
     const model = diagnosis.recommendedModels.find((entry) => entry.name === scenario.modelName)
       ?? diagnosis.recommendedModels.find((entry) => entry.canRun)
       ?? diagnosis.recommendedModels[0];
@@ -156,7 +157,7 @@ function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: Us
     };
   }
 
-  const diagnosis = evaluateSystem(plan.profile, scenarioUsage, t);
+  const diagnosis = evaluateSystem(plan.profile, scenarioUsage, t, modelCatalog);
   const model = diagnosis.recommendedModels.find((entry) => entry.name === scenario.modelName)
     ?? diagnosis.recommendedModels.find((entry) => entry.canRun)
     ?? diagnosis.recommendedModels[0];
@@ -187,7 +188,7 @@ function resultBadge(result: PlanResult, t: (key: string) => string) {
   return <span className="inline-flex items-center gap-1 rounded-full border border-[#7dd3fc]/40 bg-[#7dd3fc]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#7dd3fc]"><CheckCircle2 className="h-3 w-3" />OK</span>;
 }
 
-export function ComparisonPage({ hardware, usage }: Props) {
+export function ComparisonPage({ hardware, usage, modelCatalog }: Props) {
   const { t } = useLanguage();
   const [apiOptions, setApiOptions] = useState<ApiOption[]>(FALLBACK_API_OPTIONS);
   const [cloudOptions, setCloudOptions] = useState<CloudRentalOption[]>(CLOUD_RENTAL_OPTIONS);
@@ -238,10 +239,10 @@ export function ComparisonPage({ hardware, usage }: Props) {
 
   const rows = useMemo(() => {
     const scored = SCENARIOS.map((scenario) => {
-      const resultA = evaluatePlan(planA, scenario, usage, t);
-      const resultB = evaluatePlan(planB, scenario, usage, t);
+      const resultA = evaluatePlan(planA, scenario, usage, t, modelCatalog);
+      const resultB = evaluatePlan(planB, scenario, usage, t, modelCatalog);
       const winner = winnerFor(resultA, resultB);
-      const catalogModel = MODEL_CATALOG.find((model) => model.name === scenario.modelName);
+      const catalogModel = modelCatalog.find((model) => model.name === scenario.modelName) ?? MODEL_CATALOG.find((model) => model.name === scenario.modelName);
       return { scenario, resultA, resultB, winner, params: catalogModel?.parameters ?? '' };
     });
 
@@ -252,7 +253,7 @@ export function ComparisonPage({ hardware, usage }: Props) {
       const order = { a: 0, tie: 1, b: 2 };
       return order[left.winner] - order[right.winner];
     });
-  }, [planA, planB, usage, t, sortKey]);
+  }, [planA, planB, usage, t, sortKey, modelCatalog]);
 
   const counts = rows.reduce((acc, row) => ({
     a: acc.a + (row.winner === 'a' ? 1 : 0),

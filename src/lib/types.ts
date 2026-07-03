@@ -1,6 +1,7 @@
 export type OS = 'Windows' | 'macOS' | 'Linux';
 export type GPUMaker = 'NVIDIA' | 'AMD' | 'Apple' | 'Intel' | 'None';
 export type HardwarePurchaseStatus = 'owned' | 'planned';
+export type DataConfidence = 'official' | 'verified' | 'community' | 'estimated' | 'deprecated';
 
 export interface HardwareProfile {
   preset: string; // e.g. "custom", "rtx4090", "m3max", "nogpu"
@@ -84,6 +85,8 @@ export interface ModelCatalogEntry {
   installCommands: ModelInstallCommand[];
   specs: ModelSpec[];
   benchmarkSummary: ModelBenchmarkSummary[];
+  confidence?: DataConfidence;
+  lastCheckedAt?: string;
 }
 
 export interface ModelCapability {
@@ -103,6 +106,8 @@ export interface ModelCapability {
   installCommands: ModelInstallCommand[];
   specs: ModelSpec[];
   benchmarkSummary: ModelBenchmarkSummary[];
+  confidence?: DataConfidence;
+  lastCheckedAt?: string;
 }
 
 export interface EconomicAnalysis {

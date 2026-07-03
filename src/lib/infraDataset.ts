@@ -1,4 +1,4 @@
-import { HardwareProfile } from './types';
+import { HardwareProfile, ModelBenchmarkSummary, ModelCatalogEntry, ModelInstallCommand, ModelLink, ModelSpec, UsageGoal } from './types';
 
 export type DataConfidence = 'official' | 'verified' | 'community' | 'estimated' | 'deprecated';
 
@@ -14,6 +14,9 @@ export interface ApiPricingRecord {
   lastCheckedAt: string;
   sources: Array<{ type: string; url: string }>;
   notes?: string;
+  pricingUnit?: string;
+  priceRegion?: string;
+  priceLastVerifiedAt?: string;
 }
 
 export interface ApiOption {
@@ -25,6 +28,8 @@ export interface ApiOption {
   outputUsdPerMillion: number;
   quality: number;
   confidence: DataConfidence;
+  priceRegion?: string;
+  priceLastVerifiedAt?: string;
 }
 
 export interface HardwareOption {
@@ -33,6 +38,29 @@ export interface HardwareOption {
   name: string;
   detail: string;
   profile: HardwareProfile;
+}
+
+export interface LocalModelRecord {
+  id: string;
+  name: string;
+  parameters: string;
+  quantization: string;
+  minFastVramGB: number;
+  minGpuVramGB: number;
+  minCpuRamGB: number;
+  confidence: DataConfidence;
+  lastCheckedAt: string;
+  sources: Array<{ type: string; url: string }>;
+  notes?: string;
+  description?: string;
+  idealUseCases?: string[];
+  qualityScore?: number;
+  license?: string;
+  contextWindowTokens?: number;
+  links?: Array<ModelLink & { runtime?: string }>;
+  quantizationOptions?: string[];
+  installCommands?: Array<ModelInstallCommand & { runtime?: string }>;
+  benchmarkSummary?: ModelBenchmarkSummary[];
 }
 
 export interface CloudComputeRecord {
@@ -54,6 +82,9 @@ export interface CloudComputeRecord {
   lastCheckedAt: string;
   sources: Array<{ type: string; url: string }>;
   notes?: string;
+  priceRegion?: string;
+  priceUnit?: 'hour' | 'month' | 'request' | 'token' | 'serverless';
+  priceLastVerifiedAt?: string;
 }
 
 export interface CloudRentalOption {
@@ -69,6 +100,9 @@ export interface CloudRentalOption {
   operationalScore: number;
   profile: HardwareProfile;
   confidence: DataConfidence;
+  priceRegion?: string;
+  priceUnit?: string;
+  priceLastVerifiedAt?: string;
 }
 
 const DATASET_BASE_URL = 'https://raw.githubusercontent.com/raulprtech/ai-infra-dataset/main';
@@ -93,6 +127,7 @@ export const CLOUD_RENTAL_OPTIONS: CloudRentalOption[] = [
     networkMonthlyUsd: 0,
     operationalScore: 72,
     confidence: 'estimated',
+    priceUnit: 'hour',
     profile: { preset: 'cloud-runpod-4090', os: 'Linux', gpuMaker: 'NVIDIA', gpuName: 'RTX 4090', vramGB: 24, ramGB: 64, cpuName: '', devicePriceUsd: 0, purchaseStatus: 'owned' },
   },
   {
@@ -106,6 +141,7 @@ export const CLOUD_RENTAL_OPTIONS: CloudRentalOption[] = [
     networkMonthlyUsd: 0,
     operationalScore: 78,
     confidence: 'estimated',
+    priceUnit: 'hour',
     profile: { preset: 'cloud-lambda-a10', os: 'Linux', gpuMaker: 'NVIDIA', gpuName: 'A10', vramGB: 24, ramGB: 64, cpuName: '', devicePriceUsd: 0, purchaseStatus: 'owned' },
   },
   {
@@ -119,6 +155,8 @@ export const CLOUD_RENTAL_OPTIONS: CloudRentalOption[] = [
     networkMonthlyUsd: 10,
     operationalScore: 86,
     confidence: 'estimated',
+    priceRegion: 'us-east-1 reference',
+    priceUnit: 'hour',
     profile: { preset: 'cloud-aws-g5', os: 'Linux', gpuMaker: 'NVIDIA', gpuName: 'A10G', vramGB: 24, ramGB: 16, cpuName: '', devicePriceUsd: 0, purchaseStatus: 'owned' },
   },
   {
@@ -133,6 +171,7 @@ export const CLOUD_RENTAL_OPTIONS: CloudRentalOption[] = [
     networkMonthlyUsd: 0,
     operationalScore: 88,
     confidence: 'estimated',
+    priceUnit: 'serverless',
     profile: { preset: 'cloudflare-workers-ai', os: 'Linux', gpuMaker: 'NVIDIA', gpuName: 'Managed serverless GPU', vramGB: 16, ramGB: 32, cpuName: '', devicePriceUsd: 0, purchaseStatus: 'owned' },
   },
 ];
@@ -176,12 +215,30 @@ export const HARDWARE_OPTIONS: HardwareOption[] = [
 ];
 
 function apiDetail(record: ApiPricingRecord) {
-  return (record.category || 'api').replace(/_/g, ' ');
+  const confidence = record.confidence === 'estimated' ? 'estimated' : record.confidence;
+  return `${(record.category || 'api').replace(/_/g, ' ')} - ${record.pricingUnit ?? 'tokens'} - ${confidence}`;
 }
 
 function cloudDetail(record: CloudComputeRecord) {
   const price = record.monthlyUsd ? `$${record.monthlyUsd}/mo` : `$${record.hourlyUsd}/hr`;
-  return `${record.category.replace(/-/g, ' ')} - ${record.vramGB}GB VRAM - ${price}`;
+  const region = record.priceRegion ? ` - ${record.priceRegion}` : '';
+  return `${record.category.replace(/-/g, ' ')} - ${record.vramGB}GB VRAM - ${price}${region}`;
+}
+
+function isUsageGoal(value: string): value is UsageGoal {
+  return ['chat', 'coding', 'agents', 'rag', 'vision', 'embedding'].includes(value);
+}
+
+function localModelSpecs(record: LocalModelRecord): ModelSpec[] {
+  const specs: ModelSpec[] = [
+    { label: 'VRAM util', value: `${record.minGpuVramGB} GB+` },
+    { label: 'VRAM fluida', value: `${record.minFastVramGB} GB+` },
+    { label: 'RAM CPU', value: `${record.minCpuRamGB} GB+` },
+  ];
+  if (record.contextWindowTokens) {
+    specs.unshift({ label: 'Contexto', value: `${record.contextWindowTokens.toLocaleString()} tokens` });
+  }
+  return specs;
 }
 
 export function mapApiPricingRecord(record: ApiPricingRecord): ApiOption {
@@ -194,6 +251,34 @@ export function mapApiPricingRecord(record: ApiPricingRecord): ApiOption {
     outputUsdPerMillion: record.outputUsdPerMillionTokens,
     quality: record.qualityScore,
     confidence: record.confidence,
+    priceRegion: record.priceRegion,
+    priceLastVerifiedAt: record.priceLastVerifiedAt,
+  };
+}
+
+export function mapLocalModelRecord(record: LocalModelRecord): ModelCatalogEntry {
+  const idealUseCases = (record.idealUseCases ?? ['chat']).filter(isUsageGoal);
+  return {
+    name: record.name,
+    parameters: record.parameters,
+    quantization: record.quantization,
+    minFastVramGB: record.minFastVramGB,
+    minGpuVramGB: record.minGpuVramGB,
+    minCpuRamGB: record.minCpuRamGB,
+    noteKey: 'calc.models.dataset',
+    idealUseCases: idealUseCases.length > 0 ? idealUseCases : ['chat'],
+    intelligenceScore: record.qualityScore ?? 50,
+    description: record.description ?? record.notes ?? 'Modelo local importado desde ai-infra-dataset.',
+    license: record.license ?? 'Licencia pendiente de revision.',
+    links: record.links ?? record.sources.map((source) => ({ label: source.type, url: source.url })),
+    quantizationOptions: record.quantizationOptions ?? [record.quantization],
+    installCommands: record.installCommands ?? [],
+    specs: localModelSpecs(record),
+    benchmarkSummary: record.benchmarkSummary ?? [
+      { label: 'Calidad relativa', value: `${record.qualityScore ?? 50}/100`, note: `Confianza del dato: ${record.confidence}` },
+    ],
+    confidence: record.confidence,
+    lastCheckedAt: record.lastCheckedAt,
   };
 }
 
@@ -210,6 +295,9 @@ export function mapCloudComputeRecord(record: CloudComputeRecord): CloudRentalOp
     networkMonthlyUsd: record.networkMonthlyUsd ?? 0,
     operationalScore: record.operationalScore,
     confidence: record.confidence,
+    priceRegion: record.priceRegion,
+    priceUnit: record.priceUnit,
+    priceLastVerifiedAt: record.priceLastVerifiedAt,
     profile: {
       preset: `cloud-${record.id}`,
       os: 'Linux',
@@ -222,6 +310,15 @@ export function mapCloudComputeRecord(record: CloudComputeRecord): CloudRentalOp
       purchaseStatus: 'owned',
     },
   };
+}
+
+export async function loadLocalModelCatalog(): Promise<ModelCatalogEntry[]> {
+  const response = await fetch(`${DATASET_BASE_URL}/data/models/local-models.json`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Dataset request failed: ${response.status}`);
+  const records = await response.json() as LocalModelRecord[];
+  return records
+    .filter((record) => record.confidence !== 'deprecated')
+    .map(mapLocalModelRecord);
 }
 
 export async function loadApiOptions(): Promise<ApiOption[]> {
