@@ -16,7 +16,12 @@ interface WebGpuInfo {
 
 interface GpuCandidate {
   label: string;
-  source: 'webgl-high' | 'webgl-default' | 'webgl2-high' | 'webgl2-default' | 'webgpu-high' | 'webgpu-default';
+  source: 'webgl-primary' | 'webgl-vendor' | 'webgl-high' | 'webgl-default' | 'webgl2-high' | 'webgl2-default' | 'webgpu-high' | 'webgpu-default';
+}
+
+interface WebGlInfo {
+  renderer: string | null;
+  vendor: string | null;
 }
 
 const GPU_SPECS: Record<string, GpuSpec> = {
@@ -119,12 +124,15 @@ function getDeviceMemoryGB(): number | null {
 
 function cleanRendererLabel(label: string): string {
   return label
-    .replace(/^ANGLE\s*\(/i, '')
+    .replace(/^ANGLE\s*\(\s*/i, '')
+    .replace(/,\s*Direct3D.*$/i, '')
     .replace(/\s*Direct3D.*$/i, '')
     .replace(/\s*D3D\d+.*$/i, '')
     .replace(/\s*OpenGL Engine.*$/i, '')
+    .replace(/,\s*Metal.*$/i, '')
     .replace(/\s*Metal.*$/i, '')
-    .replace(/\s*\(.*?\)/g, ' ')
+    .replace(/\)\s*$/g, '')
+    .replace(/\s*\(0x[0-9a-f]+\)/gi, ' ')
     .replace(/NVIDIA\s+/i, '')
     .replace(/AMD\s+/i, '')
     .replace(/Radeon\s+Graphics/i, 'Radeon Graphics')
@@ -163,6 +171,30 @@ function getAppleMemoryGB(label: string): number | null {
   const normalized = label.toUpperCase();
   const key = Object.keys(APPLE_UNIFIED_MEMORY_GB).sort((a, b) => b.length - a.length).find((candidate) => normalized.includes(candidate));
   return key ? APPLE_UNIFIED_MEMORY_GB[key] : null;
+}
+
+
+function getPrimaryWebGlInfo(): WebGlInfo {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = (canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+    if (!gl) return { renderer: null, vendor: null };
+
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (debugInfo) {
+      return {
+        renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) as string,
+        vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) as string,
+      };
+    }
+
+    return {
+      renderer: gl.getParameter(gl.RENDERER) as string,
+      vendor: gl.getParameter(gl.VENDOR) as string,
+    };
+  } catch {
+    return { renderer: null, vendor: null };
+  }
 }
 
 async function getWebGpuInfo(powerPreference: 'high-performance' | 'default'): Promise<WebGpuInfo> {
@@ -270,9 +302,11 @@ function candidateScore(candidate: GpuCandidate, os: OS): number {
   const matched = findGpuSpec(label);
   let score = 0;
 
+  if (candidate.source === 'webgl-primary') score += 50;
+  if (candidate.source === 'webgl-vendor') score += 35;
   if (candidate.source === 'webgl-high' || candidate.source === 'webgl2-high' || candidate.source === 'webgpu-high') score += 25;
   if (matched) score += 100;
-  if (maker === 'NVIDIA' || maker === 'AMD') score += 45;
+  if (maker === 'NVIDIA' || maker === 'AMD') score += 65;
   if (maker === 'Apple') score += 30;
   if (maker === 'Intel') score -= 30;
   if (isIntegratedGpu(label, maker)) score -= 35;
@@ -312,11 +346,14 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
     maxBufferGB: null,
     powerPreference,
   });
+  const primaryWebGl = getPrimaryWebGlInfo();
   const [webGpuHigh, webGpuDefault] = await Promise.all([
     getWebGpuInfo('high-performance').catch(() => emptyWebGpu('high-performance')),
     getWebGpuInfo('default').catch(() => emptyWebGpu('default')),
   ]);
   const candidates: GpuCandidate[] = [
+    { label: primaryWebGl.renderer ?? '', source: 'webgl-primary' as const },
+    { label: primaryWebGl.vendor ?? '', source: 'webgl-vendor' as const },
     { label: webGpuHigh.label ?? '', source: 'webgpu-high' as const },
     { label: getWebGlRenderer('high-performance', 'webgl2') ?? '', source: 'webgl2-high' as const },
     { label: getWebGlRenderer('high-performance', 'webgl') ?? '', source: 'webgl-high' as const },
@@ -327,7 +364,7 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
   const bestCandidate = pickBestCandidate(candidates, os);
   const rawLabel = bestCandidate?.label ?? current.gpuName;
   const cleanLabel = cleanRendererLabel(rawLabel);
-  const combinedLabel = `${rawLabel} ${cleanLabel} ${webGpuHigh.label ?? ''} ${webGpuDefault.label ?? ''}`;
+  const combinedLabel = `${rawLabel} ${cleanLabel} ${primaryWebGl.renderer ?? ''} ${primaryWebGl.vendor ?? ''} ${webGpuHigh.label ?? ''} ${webGpuDefault.label ?? ''}`;
   const maker = inferGpuMaker(combinedLabel, os);
   const matched = findGpuSpec(combinedLabel);
   const gpuName = matched?.name ? matched.name.replace(/\bTI\b/g, 'Ti') : fallbackGpuName(maker, cleanLabel || rawLabel);
