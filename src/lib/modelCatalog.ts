@@ -246,6 +246,10 @@ export function evaluateCatalogEntry(
     installCommands: model.installCommands,
     specs: model.specs,
     benchmarkSummary: model.benchmarkSummary,
+    sources: model.sources,
+    benchmarkRefs: model.benchmarkRefs,
+    deploymentOptions: model.deploymentOptions,
+    dataQuality: model.dataQuality,
     confidence: model.confidence,
     lastCheckedAt: model.lastCheckedAt,
   };

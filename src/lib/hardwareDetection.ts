@@ -6,6 +6,10 @@ interface GpuSpec {
 
 interface WebGpuInfo {
   label: string | null;
+  vendor: string | null;
+  architecture: string | null;
+  device: string | null;
+  description: string | null;
   maxBufferGB: number | null;
   powerPreference: 'high-performance' | 'default';
 }
@@ -131,11 +135,21 @@ function cleanRendererLabel(label: string): string {
 
 function inferGpuMaker(label: string, os: OS): GPUMaker {
   const value = label.toLowerCase();
-  if (value.includes('nvidia') || value.includes('geforce') || value.includes('rtx') || value.includes('gtx')) return 'NVIDIA';
-  if (value.includes('amd') || value.includes('radeon') || value.includes('rx ')) return 'AMD';
-  if (value.includes('apple') || /\bm[1-5]\b/.test(value)) return 'Apple';
-  if (value.includes('intel') || value.includes('arc') || value.includes('iris') || value.includes('uhd')) return 'Intel';
+  if (value.includes('nvidia') || value.includes('geforce') || value.includes('rtx') || value.includes('gtx') || value.includes('0x10de') || /\b10de\b/.test(value) || /\b4318\b/.test(value)) return 'NVIDIA';
+  if (value.includes('amd') || value.includes('radeon') || value.includes('rx ') || value.includes('0x1002') || /\b1002\b/.test(value) || /\b4098\b/.test(value)) return 'AMD';
+  if (value.includes('apple') || value.includes('0x106b') || /\b106b\b/.test(value) || /\bm[1-5]\b/.test(value)) return 'Apple';
+  if (value.includes('intel') || value.includes('arc') || value.includes('iris') || value.includes('uhd') || value.includes('0x8086') || /\b8086\b/.test(value) || /\b32902\b/.test(value)) return 'Intel';
   return os === 'macOS' ? 'Apple' : 'None';
+}
+
+function fallbackGpuName(maker: GPUMaker, label: string): string {
+  const cleaned = cleanRendererLabel(label);
+  if (cleaned && !/^0x[0-9a-f]+$/i.test(cleaned) && !/^\d+$/.test(cleaned)) return cleaned;
+  if (maker === 'NVIDIA') return 'NVIDIA discrete GPU';
+  if (maker === 'AMD') return 'AMD discrete GPU';
+  if (maker === 'Apple') return 'Apple Silicon GPU';
+  if (maker === 'Intel') return 'Intel integrated GPU';
+  return cleaned || 'Unknown GPU';
 }
 
 function findGpuSpec(label: string): { name: string; spec: GpuSpec } | null {
@@ -154,7 +168,7 @@ function getAppleMemoryGB(label: string): number | null {
 async function getWebGpuInfo(powerPreference: 'high-performance' | 'default'): Promise<WebGpuInfo> {
   const gpu = (navigator as Navigator & { gpu?: { requestAdapter?: (options?: { powerPreference?: 'high-performance' | 'low-power' }) => Promise<unknown> } }).gpu;
   const adapter = await gpu?.requestAdapter?.(powerPreference === 'high-performance' ? { powerPreference } : undefined);
-  if (!adapter) return { label: null, maxBufferGB: null, powerPreference };
+  if (!adapter) return { label: null, vendor: null, architecture: null, device: null, description: null, maxBufferGB: null, powerPreference };
 
   const maybeAdapter = adapter as {
     requestAdapterInfo?: () => Promise<{ vendor?: string | number; architecture?: string; device?: string | number; description?: string }>;
@@ -168,11 +182,15 @@ async function getWebGpuInfo(powerPreference: 'high-performance' | 'default'): P
   }
 
   const info = maybeAdapter.info ?? await maybeAdapter.requestAdapterInfo?.();
-  const label = [info?.vendor, info?.architecture, info?.device, info?.description].filter(Boolean).join(' ').trim() || null;
+  const vendor = info?.vendor != null ? String(info.vendor) : null;
+  const architecture = info?.architecture != null ? String(info.architecture) : null;
+  const device = info?.device != null ? String(info.device) : null;
+  const description = info?.description != null ? String(info.description) : null;
+  const label = [vendor, architecture, device, description].filter(Boolean).join(' ').trim() || null;
   const maxBufferSize = maybeAdapter.limits?.maxBufferSize;
   const maxBufferGB = typeof maxBufferSize === 'number' ? maxBufferSize / 1024 / 1024 / 1024 : null;
 
-  return { label, maxBufferGB, powerPreference };
+  return { label, vendor, architecture, device, description, maxBufferGB, powerPreference };
 }
 
 function getWebGlRenderer(powerPreference: 'high-performance' | 'default'): string | null {
@@ -269,9 +287,18 @@ function pickBestCandidate(candidates: GpuCandidate[], os: OS): GpuCandidate | n
 
 export async function detectHardwareProfile(current: HardwareProfile): Promise<Partial<HardwareProfile>> {
   const os = detectOs();
+  const emptyWebGpu = (powerPreference: 'high-performance' | 'default'): WebGpuInfo => ({
+    label: null,
+    vendor: null,
+    architecture: null,
+    device: null,
+    description: null,
+    maxBufferGB: null,
+    powerPreference,
+  });
   const [webGpuHigh, webGpuDefault] = await Promise.all([
-    getWebGpuInfo('high-performance').catch(() => ({ label: null, maxBufferGB: null, powerPreference: 'high-performance' as const })),
-    getWebGpuInfo('default').catch(() => ({ label: null, maxBufferGB: null, powerPreference: 'default' as const })),
+    getWebGpuInfo('high-performance').catch(() => emptyWebGpu('high-performance')),
+    getWebGpuInfo('default').catch(() => emptyWebGpu('default')),
   ]);
   const candidates: GpuCandidate[] = [
     { label: webGpuHigh.label ?? '', source: 'webgpu-high' as const },
@@ -285,7 +312,7 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
   const combinedLabel = `${rawLabel} ${cleanLabel} ${webGpuHigh.label ?? ''} ${webGpuDefault.label ?? ''}`;
   const maker = inferGpuMaker(combinedLabel, os);
   const matched = findGpuSpec(combinedLabel);
-  const gpuName = matched?.name ? matched.name.replace(/\bTI\b/g, 'Ti') : cleanLabel;
+  const gpuName = matched?.name ? matched.name.replace(/\bTI\b/g, 'Ti') : fallbackGpuName(maker, cleanLabel || rawLabel);
   const ramGB = estimateRamGB(os, combinedLabel, current);
   const vramGB = estimateVramGB(combinedLabel, maker, os, webGpuHigh.maxBufferGB ? webGpuHigh : webGpuDefault, current);
 

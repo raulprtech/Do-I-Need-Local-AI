@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Cloud, Cpu, Equal, Server, Trophy, XCircle } from 'lucide-react';
+import { CheckCircle2, Cloud, Cpu, Equal, ExternalLink, Server, Trophy, XCircle } from 'lucide-react';
 import { evaluateSystem } from '../lib/calculator';
 import { MODEL_CATALOG } from '../lib/modelCatalog';
 import { HardwareProfile, ModelCatalogEntry, UsageProfile } from '../lib/types';
@@ -120,6 +120,40 @@ function planKindLabel(kind: PlanKind) {
   return 'HW';
 }
 
+function planMeta(plan: PlanOption) {
+  if (plan.kind === 'hardware') return null;
+  const source = plan.sources?.[0];
+  return {
+    confidence: plan.confidence,
+    region: plan.priceRegion,
+    verifiedAt: plan.priceLastVerifiedAt,
+    notes: plan.priceNotes || plan.notes,
+    source,
+  };
+}
+
+function PlanDataMeta({ plan }: { plan: PlanOption }) {
+  const meta = planMeta(plan);
+  if (!meta) return null;
+
+  return (
+    <div className="mt-4 rounded-[8px] border border-[#7dd3fc]/10 bg-black/20 p-3 text-[10px] leading-5 text-[#8ba7c7]">
+      <div className="flex flex-wrap gap-2">
+        <span className="rounded-full border border-[#7dd3fc]/20 px-2 py-1 text-[#7dd3fc]">{meta.confidence}</span>
+        {meta.region && <span className="rounded-full border border-[#7dd3fc]/20 px-2 py-1">{meta.region}</span>}
+        {meta.verifiedAt && <span className="rounded-full border border-[#7dd3fc]/20 px-2 py-1">{meta.verifiedAt}</span>}
+      </div>
+      {meta.notes && <p className="mt-2 line-clamp-2">{meta.notes}</p>}
+      {meta.source && (
+        <a href={meta.source.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[#7dd3fc] hover:text-[#dbeafe]">
+          {meta.source.type}
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
+    </div>
+  );
+}
+
 function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: UsageProfile, t: (key: string) => string, modelCatalog: ModelCatalogEntry[]): PlanResult {
   const scenarioUsage = applyScenario(baseUsage, scenario);
   const requests = requestsPerMonth(scenarioUsage);
@@ -133,7 +167,7 @@ function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: Us
       monthlyUsd,
       score: plan.quality - monthlyUsd * 0.2,
       label: formatMoney(monthlyUsd, scenarioUsage, 2),
-      sublabel: `$${plan.inputUsdPerMillion}/$${plan.outputUsdPerMillion} per 1M`,
+      sublabel: `$${plan.inputUsdPerMillion}/$${plan.outputUsdPerMillion} per 1M - ${plan.confidence}`,
     };
   }
 
@@ -285,6 +319,7 @@ export function ComparisonPage({ hardware, usage, modelCatalog }: Props) {
             </div>
             <span className="rounded-full border border-[#7dd3fc]/40 p-2 text-[#7dd3fc]">{planIcon(planA.kind)}</span>
           </div>
+          <PlanDataMeta plan={planA} />
         </div>
 
         <div className="panel-card-muted flex flex-col items-center justify-center gap-3 text-center">
@@ -308,6 +343,7 @@ export function ComparisonPage({ hardware, usage, modelCatalog }: Props) {
             </div>
             <span className="rounded-full border border-[#7dd3fc]/40 p-2 text-[#7dd3fc]">{planIcon(planB.kind)}</span>
           </div>
+          <PlanDataMeta plan={planB} />
         </div>
       </section>
 

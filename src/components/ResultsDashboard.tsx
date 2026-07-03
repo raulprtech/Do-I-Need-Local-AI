@@ -24,6 +24,7 @@ export function ResultsDashboard({ diagnosis }: Props) {
     apiCost: point.apiCost * exchangeRate,
     localCost: point.localCost * exchangeRate,
   }));
+  const qualityEntries = selectedModel?.dataQuality ? Object.entries(selectedModel.dataQuality).filter(([, value]) => value) : [];
   const compatibleModels = recommendedModels.filter((model) => model.canRun && model.speed !== 'unusable');
   const visibleModels = showAllModels || compatibleModels.length === 0 ? recommendedModels : compatibleModels;
   const hasHiddenModels = recommendedModels.length > visibleModels.length;
@@ -299,6 +300,16 @@ export function ResultsDashboard({ diagnosis }: Props) {
                       </span>
                     </div>
                   )}
+                  {selectedModel.deploymentOptions && selectedModel.deploymentOptions.length > 0 && (
+                    <div className="sm:col-span-4">
+                      <span className="micro-label mb-2">{t('results.models.runtimes')}</span>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedModel.deploymentOptions.map((runtime) => (
+                          <span key={runtime} className="rounded-full border border-[#7dd3fc]/20 bg-[#7dd3fc]/10 px-2 py-1 text-[10px] text-[#7dd3fc]">{runtime}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {selectedModel.specs.map((spec) => (
@@ -308,6 +319,26 @@ export function ResultsDashboard({ diagnosis }: Props) {
                     </div>
                   ))}
                 </div>
+                {selectedModel.benchmarkRefs && selectedModel.benchmarkRefs.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {selectedModel.benchmarkRefs.map((source) => (
+                      <a key={`${source.type}-${source.url}`} href={source.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#7dd3fc]/20 px-3 py-2 text-xs text-[#7dd3fc] transition hover:border-[#7dd3fc]/70 hover:bg-[#7dd3fc]/10">
+                        {source.type}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {qualityEntries.length > 0 && (
+                  <div className="mt-4 border-t border-[#7dd3fc]/10 pt-4">
+                    <h4 className="mb-3 font-mono text-lg text-[#dbeafe]">{t('results.models.dataQualityBreakdown')}</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {qualityEntries.map(([key, value]) => (
+                        <span key={key} className="rounded-full border border-[#7dd3fc]/20 bg-[#7dd3fc]/10 px-3 py-1 text-[10px] text-[#7dd3fc]">{key}: {value}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </section>
 
               <section className="rounded-[8px] border border-[#7dd3fc]/10 bg-black/20 p-4">
@@ -328,6 +359,25 @@ export function ResultsDashboard({ diagnosis }: Props) {
                 </div>
                 <h4 className="mb-3 mt-5 font-mono text-lg text-[#dbeafe]">{t('results.models.useCases')}</h4>
                 <p className="text-sm leading-6 text-[#8ba7c7]">{selectedModel.idealUseCaseLabels}</p>
+                {selectedModel.sources && selectedModel.sources.length > 0 && (
+                  <>
+                    <h4 className="mb-3 mt-5 font-mono text-lg text-[#dbeafe]">{t('results.models.sources')}</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedModel.sources.map((source) => (
+                        <a
+                          key={`${source.type}-${source.url}`}
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-full border border-[#7dd3fc]/20 px-3 py-2 text-xs text-[#7dd3fc] transition hover:border-[#7dd3fc]/70 hover:bg-[#7dd3fc]/10"
+                        >
+                          {source.type}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ))}
+                    </div>
+                  </>
+                )}
               </section>
 
               <section className="rounded-[8px] border border-[#7dd3fc]/10 bg-black/20 p-4">
@@ -342,6 +392,9 @@ export function ResultsDashboard({ diagnosis }: Props) {
               <section className="rounded-[8px] border border-[#7dd3fc]/10 bg-black/20 p-4">
                 <h4 className="mb-3 font-mono text-lg text-[#dbeafe]">{t('results.models.install')}</h4>
                 <div className="flex flex-col gap-2">
+                  {selectedModel.installCommands.length === 0 && (
+                    <p className="text-xs leading-5 text-[#8ba7c7]">{t('results.models.noInstall')}</p>
+                  )}
                   {selectedModel.installCommands.map((command) => (
                     <div key={command.label} className="rounded-[8px] border border-[#7dd3fc]/10 bg-[#020711] p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
@@ -369,6 +422,12 @@ export function ResultsDashboard({ diagnosis }: Props) {
                       <span className="block text-[10px] uppercase tracking-[0.16em] text-[#8ba7c7]">{item.label}</span>
                       <span className="mt-2 block font-mono text-xl text-[#dbeafe]">{item.value}</span>
                       {item.note && <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">{item.note}</p>}
+                      {item.sourceUrl && (
+                        <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-[10px] text-[#7dd3fc] hover:text-[#dbeafe]">
+                          {t('results.models.source')}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>

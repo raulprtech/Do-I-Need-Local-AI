@@ -1,4 +1,4 @@
-import { HardwareProfile, ModelBenchmarkSummary, ModelCatalogEntry, ModelInstallCommand, ModelLink, ModelSpec, UsageGoal } from './types';
+import { HardwareProfile, ModelBenchmarkSummary, ModelCatalogEntry, ModelDataQuality, ModelInstallCommand, ModelLink, ModelRuntime, ModelSource, ModelSpec, UsageGoal } from './types';
 
 export type DataConfidence = 'official' | 'verified' | 'community' | 'estimated' | 'deprecated';
 
@@ -12,8 +12,9 @@ export interface ApiPricingRecord {
   qualityScore: number;
   confidence: DataConfidence;
   lastCheckedAt: string;
-  sources: Array<{ type: string; url: string }>;
+  sources: ModelSource[];
   notes?: string;
+  priceNotes?: string;
   pricingUnit?: string;
   priceRegion?: string;
   priceLastVerifiedAt?: string;
@@ -28,6 +29,9 @@ export interface ApiOption {
   outputUsdPerMillion: number;
   quality: number;
   confidence: DataConfidence;
+  sources?: ModelSource[];
+  notes?: string;
+  priceNotes?: string;
   priceRegion?: string;
   priceLastVerifiedAt?: string;
 }
@@ -50,16 +54,19 @@ export interface LocalModelRecord {
   minCpuRamGB: number;
   confidence: DataConfidence;
   lastCheckedAt: string;
-  sources: Array<{ type: string; url: string }>;
+  sources: ModelSource[];
   notes?: string;
   description?: string;
   idealUseCases?: string[];
   qualityScore?: number;
   license?: string;
   contextWindowTokens?: number;
-  links?: Array<ModelLink & { runtime?: string }>;
+  links?: ModelLink[];
   quantizationOptions?: string[];
-  installCommands?: Array<ModelInstallCommand & { runtime?: string }>;
+  installCommands?: ModelInstallCommand[];
+  deploymentOptions?: ModelRuntime[];
+  benchmarkRefs?: ModelSource[];
+  dataQuality?: ModelDataQuality;
   benchmarkSummary?: ModelBenchmarkSummary[];
 }
 
@@ -80,8 +87,9 @@ export interface CloudComputeRecord {
   operationalScore: number;
   confidence: DataConfidence;
   lastCheckedAt: string;
-  sources: Array<{ type: string; url: string }>;
+  sources: ModelSource[];
   notes?: string;
+  priceNotes?: string;
   priceRegion?: string;
   priceUnit?: 'hour' | 'month' | 'request' | 'token' | 'serverless';
   priceLastVerifiedAt?: string;
@@ -100,6 +108,9 @@ export interface CloudRentalOption {
   operationalScore: number;
   profile: HardwareProfile;
   confidence: DataConfidence;
+  sources?: ModelSource[];
+  notes?: string;
+  priceNotes?: string;
   priceRegion?: string;
   priceUnit?: string;
   priceLastVerifiedAt?: string;
@@ -251,6 +262,9 @@ export function mapApiPricingRecord(record: ApiPricingRecord): ApiOption {
     outputUsdPerMillion: record.outputUsdPerMillionTokens,
     quality: record.qualityScore,
     confidence: record.confidence,
+    sources: record.sources,
+    notes: record.notes,
+    priceNotes: record.priceNotes,
     priceRegion: record.priceRegion,
     priceLastVerifiedAt: record.priceLastVerifiedAt,
   };
@@ -277,6 +291,10 @@ export function mapLocalModelRecord(record: LocalModelRecord): ModelCatalogEntry
     benchmarkSummary: record.benchmarkSummary ?? [
       { label: 'Calidad relativa', value: `${record.qualityScore ?? 50}/100`, note: `Confianza del dato: ${record.confidence}` },
     ],
+    sources: record.sources,
+    benchmarkRefs: record.benchmarkRefs,
+    deploymentOptions: record.deploymentOptions,
+    dataQuality: record.dataQuality,
     confidence: record.confidence,
     lastCheckedAt: record.lastCheckedAt,
   };
@@ -295,6 +313,9 @@ export function mapCloudComputeRecord(record: CloudComputeRecord): CloudRentalOp
     networkMonthlyUsd: record.networkMonthlyUsd ?? 0,
     operationalScore: record.operationalScore,
     confidence: record.confidence,
+    sources: record.sources,
+    notes: record.notes,
+    priceNotes: record.priceNotes,
     priceRegion: record.priceRegion,
     priceUnit: record.priceUnit,
     priceLastVerifiedAt: record.priceLastVerifiedAt,

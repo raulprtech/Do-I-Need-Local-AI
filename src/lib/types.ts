@@ -48,11 +48,26 @@ export interface UsageProfile {
 export interface ModelLink {
   label: string;
   url: string;
+  runtime?: string;
+}
+
+export interface ModelSource {
+  type: string;
+  url: string;
+}
+
+export type ModelRuntime = 'ollama' | 'lm-studio' | 'vllm' | 'llama-cpp' | 'mlx' | 'transformers' | string;
+
+export interface ModelDataQuality {
+  requirements?: DataConfidence;
+  quality?: DataConfidence;
+  useCases?: DataConfidence;
 }
 
 export interface ModelInstallCommand {
   label: string;
   command: string;
+  runtime?: string;
 }
 
 export interface ModelSpec {
@@ -64,6 +79,7 @@ export interface ModelBenchmarkSummary {
   label: string;
   value: string;
   note?: string;
+  sourceUrl?: string;
 }
 
 export interface ModelCatalogEntry {
@@ -85,6 +101,10 @@ export interface ModelCatalogEntry {
   installCommands: ModelInstallCommand[];
   specs: ModelSpec[];
   benchmarkSummary: ModelBenchmarkSummary[];
+  sources?: ModelSource[];
+  benchmarkRefs?: ModelSource[];
+  deploymentOptions?: ModelRuntime[];
+  dataQuality?: ModelDataQuality;
   confidence?: DataConfidence;
   lastCheckedAt?: string;
 }
@@ -106,6 +126,10 @@ export interface ModelCapability {
   installCommands: ModelInstallCommand[];
   specs: ModelSpec[];
   benchmarkSummary: ModelBenchmarkSummary[];
+  sources?: ModelSource[];
+  benchmarkRefs?: ModelSource[];
+  deploymentOptions?: ModelRuntime[];
+  dataQuality?: ModelDataQuality;
   confidence?: DataConfidence;
   lastCheckedAt?: string;
 }
