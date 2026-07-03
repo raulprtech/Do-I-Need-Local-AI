@@ -218,7 +218,7 @@ export function ResultsDashboard({ diagnosis }: Props) {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(125,211,252,0.10)" vertical={false} />
                 <XAxis dataKey="name" stroke="#8ba7c7" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke="#8ba7c7" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
-                <Tooltip contentStyle={{ backgroundColor: '#06111f', borderColor: 'rgba(125,211,252,0.22)', borderRadius: '14px', color: '#eaf4ff' }} itemStyle={{ fontSize: '12px' }} />
+                <Tooltip cursor={{ fill: 'rgba(125,211,252,0.035)' }} contentStyle={{ backgroundColor: '#06111f', borderColor: 'rgba(125,211,252,0.18)', borderRadius: '14px', color: '#eaf4ff' }} itemStyle={{ fontSize: '12px' }} />
                 <Legend verticalAlign="top" height={34} iconType="circle" wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8ba7c7' }} />
                 <Bar dataKey="frontierScore" name="Frontier" fill="#dbeafe" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="localScore" name="Local" fill="#7dd3fc" radius={[6, 6, 0, 0]} />
