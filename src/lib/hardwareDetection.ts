@@ -260,6 +260,8 @@ function estimateVRAMFromWebGPU(maxBufferGB: number | null): number | null {
 }
 
 function estimateVramGB(label: string, maker: GPUMaker, os: OS, webGpu: WebGpuInfo, current: HardwareProfile): number {
+  if (isIntegratedGpu(label, maker)) return maker === 'Apple' ? Math.max(8, Math.round((getDeviceMemoryGB() ?? current.ramGB ?? 16) * 0.75)) : 0;
+
   const explicitMemory = label.match(/(\d+)\s*gb/i);
   if (explicitMemory) return Number(explicitMemory[1]);
 
@@ -293,7 +295,16 @@ function isIntegratedGpu(label: string, maker: GPUMaker): boolean {
     || value.includes('iris')
     || value.includes('uhd')
     || value.includes('integrated')
-    || value.includes('radeon graphics');
+    || value.includes('radeon graphics')
+    || value.includes('radeon(tm) graphics')
+    || value.includes('0x00001638')
+    || value.includes('0x1638');
+}
+
+function isDedicatedGpuSignal(label: string, os: OS): boolean {
+  const maker = inferGpuMaker(label, os);
+  if (isIntegratedGpu(label, maker)) return false;
+  return maker === 'NVIDIA' || maker === 'AMD' || Boolean(findGpuSpec(label));
 }
 
 function candidateScore(candidate: GpuCandidate, os: OS): number {
@@ -306,7 +317,7 @@ function candidateScore(candidate: GpuCandidate, os: OS): number {
   if (candidate.source === 'webgl-vendor') score += 35;
   if (candidate.source === 'webgl-high' || candidate.source === 'webgl2-high' || candidate.source === 'webgpu-high') score += 25;
   if (matched) score += 100;
-  if (maker === 'NVIDIA' || maker === 'AMD') score += 65;
+  if (maker === 'NVIDIA' || maker === 'AMD') score += isIntegratedGpu(label, maker) ? 0 : 65;
   if (maker === 'Apple') score += 30;
   if (maker === 'Intel') score -= 30;
   if (isIntegratedGpu(label, maker)) score -= 35;
@@ -315,14 +326,11 @@ function candidateScore(candidate: GpuCandidate, os: OS): number {
 }
 
 function hasDedicatedSignal(candidates: GpuCandidate[], os: OS): boolean {
-  return candidates.some((candidate) => {
-    const maker = inferGpuMaker(candidate.label, os);
-    return maker === 'NVIDIA' || maker === 'AMD' || findGpuSpec(candidate.label);
-  });
+  return candidates.some((candidate) => isDedicatedGpuSignal(candidate.label, os));
 }
 
 function isLowConfidenceIntegratedOnly(candidates: GpuCandidate[], maker: GPUMaker, os: OS): boolean {
-  if (os !== 'Windows' || maker !== 'Intel') return false;
+  if (os !== 'Windows' || (maker !== 'Intel' && maker !== 'AMD')) return false;
   return candidates.length > 0 && !hasDedicatedSignal(candidates, os);
 }
 
