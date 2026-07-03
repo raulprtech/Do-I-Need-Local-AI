@@ -69,7 +69,7 @@ export function ResultsDashboard({ diagnosis }: Props) {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
+      <div className="flex flex-col gap-5">
         <div className="panel-card flex min-h-[420px] flex-col overflow-hidden">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -151,7 +151,7 @@ export function ResultsDashboard({ diagnosis }: Props) {
           </div>
         </div>
 
-        <div className="panel-card-muted flex min-h-[420px] flex-col">
+        <div className="panel-card-muted flex min-h-[360px] flex-col">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <h3 className="font-mono text-2xl font-medium tracking-normal">{t('results.economics.title')}</h3>
@@ -171,7 +171,7 @@ export function ResultsDashboard({ diagnosis }: Props) {
             </div>
           </div>
 
-          <div className="min-h-[230px] flex-1">
+          <div className="min-h-[260px] flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={localizedCostData} margin={{ top: 10, right: 12, left: -18, bottom: 0 }}>
                 <defs>

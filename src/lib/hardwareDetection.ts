@@ -16,7 +16,7 @@ interface WebGpuInfo {
 
 interface GpuCandidate {
   label: string;
-  source: 'webgl-high' | 'webgl-default' | 'webgpu-high' | 'webgpu-default';
+  source: 'webgl-high' | 'webgl-default' | 'webgl2-high' | 'webgl2-default' | 'webgpu-high' | 'webgpu-default';
 }
 
 const GPU_SPECS: Record<string, GpuSpec> = {
@@ -171,7 +171,7 @@ async function getWebGpuInfo(powerPreference: 'high-performance' | 'default'): P
   if (!adapter) return { label: null, vendor: null, architecture: null, device: null, description: null, maxBufferGB: null, powerPreference };
 
   const maybeAdapter = adapter as {
-    requestAdapterInfo?: () => Promise<{ vendor?: string | number; architecture?: string; device?: string | number; description?: string }>;
+    requestAdapterInfo?: (hints?: string[]) => Promise<{ vendor?: string | number; architecture?: string; device?: string | number; description?: string }>;
     requestDevice?: () => Promise<{ destroy?: () => void }>;
     info?: { vendor?: string | number; architecture?: string; device?: string | number; description?: string };
     limits?: { maxBufferSize?: number };
@@ -181,7 +181,7 @@ async function getWebGpuInfo(powerPreference: 'high-performance' | 'default'): P
     await maybeAdapter.requestDevice?.().then((device) => device.destroy?.()).catch(() => undefined);
   }
 
-  const info = maybeAdapter.info ?? await maybeAdapter.requestAdapterInfo?.();
+  const info = maybeAdapter.info ?? await maybeAdapter.requestAdapterInfo?.(['vendor', 'architecture', 'device', 'description']);
   const vendor = info?.vendor != null ? String(info.vendor) : null;
   const architecture = info?.architecture != null ? String(info.architecture) : null;
   const device = info?.device != null ? String(info.device) : null;
@@ -193,12 +193,16 @@ async function getWebGpuInfo(powerPreference: 'high-performance' | 'default'): P
   return { label, vendor, architecture, device, description, maxBufferGB, powerPreference };
 }
 
-function getWebGlRenderer(powerPreference: 'high-performance' | 'default'): string | null {
+function getWebGlRenderer(powerPreference: 'high-performance' | 'default', version: 'webgl' | 'webgl2' = 'webgl2'): string | null {
   const canvas = document.createElement('canvas');
-  const attributes = powerPreference === 'high-performance'
-    ? ({ powerPreference: 'high-performance' } as WebGLContextAttributes)
-    : undefined;
-  const gl = (canvas.getContext('webgl2', attributes) || canvas.getContext('webgl', attributes) || canvas.getContext('experimental-webgl', attributes)) as WebGLRenderingContext | null;
+  const attributes: WebGLContextAttributes = {
+    powerPreference: powerPreference === 'high-performance' ? 'high-performance' : 'default',
+    failIfMajorPerformanceCaveat: false,
+    antialias: false,
+  };
+  const gl = (version === 'webgl2'
+    ? canvas.getContext('webgl2', attributes)
+    : canvas.getContext('webgl', attributes) || canvas.getContext('experimental-webgl', attributes)) as WebGLRenderingContext | null;
   if (!gl) return null;
 
   gl.clearColor(0, 0, 0, 1);
@@ -266,7 +270,7 @@ function candidateScore(candidate: GpuCandidate, os: OS): number {
   const matched = findGpuSpec(label);
   let score = 0;
 
-  if (candidate.source === 'webgl-high' || candidate.source === 'webgpu-high') score += 25;
+  if (candidate.source === 'webgl-high' || candidate.source === 'webgl2-high' || candidate.source === 'webgpu-high') score += 25;
   if (matched) score += 100;
   if (maker === 'NVIDIA' || maker === 'AMD') score += 45;
   if (maker === 'Apple') score += 30;
@@ -274,6 +278,18 @@ function candidateScore(candidate: GpuCandidate, os: OS): number {
   if (isIntegratedGpu(label, maker)) score -= 35;
 
   return score;
+}
+
+function hasDedicatedSignal(candidates: GpuCandidate[], os: OS): boolean {
+  return candidates.some((candidate) => {
+    const maker = inferGpuMaker(candidate.label, os);
+    return maker === 'NVIDIA' || maker === 'AMD' || findGpuSpec(candidate.label);
+  });
+}
+
+function isLowConfidenceIntegratedOnly(candidates: GpuCandidate[], maker: GPUMaker, os: OS): boolean {
+  if (os !== 'Windows' || maker !== 'Intel') return false;
+  return candidates.length > 0 && !hasDedicatedSignal(candidates, os);
 }
 
 function pickBestCandidate(candidates: GpuCandidate[], os: OS): GpuCandidate | null {
@@ -302,8 +318,10 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
   ]);
   const candidates: GpuCandidate[] = [
     { label: webGpuHigh.label ?? '', source: 'webgpu-high' as const },
-    { label: getWebGlRenderer('high-performance') ?? '', source: 'webgl-high' as const },
-    { label: getWebGlRenderer('default') ?? '', source: 'webgl-default' as const },
+    { label: getWebGlRenderer('high-performance', 'webgl2') ?? '', source: 'webgl2-high' as const },
+    { label: getWebGlRenderer('high-performance', 'webgl') ?? '', source: 'webgl-high' as const },
+    { label: getWebGlRenderer('default', 'webgl2') ?? '', source: 'webgl2-default' as const },
+    { label: getWebGlRenderer('default', 'webgl') ?? '', source: 'webgl-default' as const },
     { label: webGpuDefault.label ?? '', source: 'webgpu-default' as const },
   ].filter((candidate) => candidate.label.trim());
   const bestCandidate = pickBestCandidate(candidates, os);
@@ -316,7 +334,18 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
   const ramGB = estimateRamGB(os, combinedLabel, current);
   const vramGB = estimateVramGB(combinedLabel, maker, os, webGpuHigh.maxBufferGB ? webGpuHigh : webGpuDefault, current);
 
-  if (isIntegratedGpu(combinedLabel, maker) && (current.gpuMaker === 'NVIDIA' || current.gpuMaker === 'AMD') && current.vramGB > 0) {
+  if ((isIntegratedGpu(combinedLabel, maker) || isLowConfidenceIntegratedOnly(candidates, maker, os)) && current.gpuMaker !== 'None' && current.gpuMaker !== 'Intel' && current.vramGB > 0) {
+    return {
+      preset: current.preset || 'custom',
+      os,
+      gpuMaker: current.gpuMaker,
+      gpuName: current.gpuName,
+      vramGB: current.vramGB,
+      ramGB,
+    };
+  }
+
+  if (isLowConfidenceIntegratedOnly(candidates, maker, os)) {
     return {
       preset: current.preset || 'custom',
       os,
