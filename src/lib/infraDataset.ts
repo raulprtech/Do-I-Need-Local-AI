@@ -35,6 +35,42 @@ export interface HardwareOption {
   profile: HardwareProfile;
 }
 
+export interface CloudComputeRecord {
+  id: string;
+  providerId: string;
+  providerName: string;
+  name: string;
+  category: 'vps' | 'gpu-cloud' | 'hyperscaler' | 'serverless-ai' | 'edge-ai';
+  gpuMaker: HardwareProfile['gpuMaker'];
+  gpuName: string;
+  vramGB: number;
+  ramGB: number;
+  hourlyUsd: number;
+  monthlyUsd?: number;
+  storageMonthlyUsd?: number;
+  networkMonthlyUsd?: number;
+  operationalScore: number;
+  confidence: DataConfidence;
+  lastCheckedAt: string;
+  sources: Array<{ type: string; url: string }>;
+  notes?: string;
+}
+
+export interface CloudRentalOption {
+  id: string;
+  kind: 'cloud-rental';
+  name: string;
+  detail: string;
+  providerName: string;
+  hourlyUsd: number;
+  monthlyUsd?: number;
+  storageMonthlyUsd: number;
+  networkMonthlyUsd: number;
+  operationalScore: number;
+  profile: HardwareProfile;
+  confidence: DataConfidence;
+}
+
 const DATASET_BASE_URL = 'https://raw.githubusercontent.com/raulprtech/ai-infra-dataset/main';
 
 export const FALLBACK_API_OPTIONS: ApiOption[] = [
@@ -43,6 +79,62 @@ export const FALLBACK_API_OPTIONS: ApiOption[] = [
   { id: 'deepseek-chat', kind: 'api', name: 'DeepSeek chat', detail: 'budget API', inputUsdPerMillion: 0.27, outputUsdPerMillion: 1.1, quality: 70, confidence: 'estimated' },
   { id: 'openai-frontier', kind: 'api', name: 'OpenAI frontier', detail: 'premium quality', inputUsdPerMillion: 2, outputUsdPerMillion: 8, quality: 88, confidence: 'estimated' },
   { id: 'claude-sonnet', kind: 'api', name: 'Claude Sonnet', detail: 'coding and reasoning', inputUsdPerMillion: 3, outputUsdPerMillion: 15, quality: 90, confidence: 'estimated' },
+];
+
+export const CLOUD_RENTAL_OPTIONS: CloudRentalOption[] = [
+  {
+    id: 'runpod-rtx-4090',
+    kind: 'cloud-rental',
+    name: 'RunPod RTX 4090',
+    detail: '24GB GPU cloud - on demand',
+    providerName: 'RunPod',
+    hourlyUsd: 0.69,
+    storageMonthlyUsd: 8,
+    networkMonthlyUsd: 0,
+    operationalScore: 72,
+    confidence: 'estimated',
+    profile: { preset: 'cloud-runpod-4090', os: 'Linux', gpuMaker: 'NVIDIA', gpuName: 'RTX 4090', vramGB: 24, ramGB: 64, cpuName: '', devicePriceUsd: 0, purchaseStatus: 'owned' },
+  },
+  {
+    id: 'lambda-a10',
+    kind: 'cloud-rental',
+    name: 'Lambda A10',
+    detail: '24GB GPU cloud - stable VM',
+    providerName: 'Lambda',
+    hourlyUsd: 0.75,
+    storageMonthlyUsd: 10,
+    networkMonthlyUsd: 0,
+    operationalScore: 78,
+    confidence: 'estimated',
+    profile: { preset: 'cloud-lambda-a10', os: 'Linux', gpuMaker: 'NVIDIA', gpuName: 'A10', vramGB: 24, ramGB: 64, cpuName: '', devicePriceUsd: 0, purchaseStatus: 'owned' },
+  },
+  {
+    id: 'aws-g5-xlarge',
+    kind: 'cloud-rental',
+    name: 'AWS g5.xlarge',
+    detail: 'A10G 24GB - hyperscaler',
+    providerName: 'AWS',
+    hourlyUsd: 1.01,
+    storageMonthlyUsd: 15,
+    networkMonthlyUsd: 10,
+    operationalScore: 86,
+    confidence: 'estimated',
+    profile: { preset: 'cloud-aws-g5', os: 'Linux', gpuMaker: 'NVIDIA', gpuName: 'A10G', vramGB: 24, ramGB: 16, cpuName: '', devicePriceUsd: 0, purchaseStatus: 'owned' },
+  },
+  {
+    id: 'cloudflare-workers-ai',
+    kind: 'cloud-rental',
+    name: 'Cloudflare Workers AI',
+    detail: 'serverless AI / edge',
+    providerName: 'Cloudflare',
+    hourlyUsd: 0,
+    monthlyUsd: 5,
+    storageMonthlyUsd: 0,
+    networkMonthlyUsd: 0,
+    operationalScore: 88,
+    confidence: 'estimated',
+    profile: { preset: 'cloudflare-workers-ai', os: 'Linux', gpuMaker: 'NVIDIA', gpuName: 'Managed serverless GPU', vramGB: 16, ramGB: 32, cpuName: '', devicePriceUsd: 0, purchaseStatus: 'owned' },
+  },
 ];
 
 export const HARDWARE_OPTIONS: HardwareOption[] = [
@@ -87,6 +179,11 @@ function apiDetail(record: ApiPricingRecord) {
   return (record.category || 'api').replace(/_/g, ' ');
 }
 
+function cloudDetail(record: CloudComputeRecord) {
+  const price = record.monthlyUsd ? `$${record.monthlyUsd}/mo` : `$${record.hourlyUsd}/hr`;
+  return `${record.category.replace(/-/g, ' ')} - ${record.vramGB}GB VRAM - ${price}`;
+}
+
 export function mapApiPricingRecord(record: ApiPricingRecord): ApiOption {
   return {
     id: record.id,
@@ -100,6 +197,33 @@ export function mapApiPricingRecord(record: ApiPricingRecord): ApiOption {
   };
 }
 
+export function mapCloudComputeRecord(record: CloudComputeRecord): CloudRentalOption {
+  return {
+    id: record.id,
+    kind: 'cloud-rental',
+    name: record.name,
+    detail: cloudDetail(record),
+    providerName: record.providerName,
+    hourlyUsd: record.hourlyUsd,
+    monthlyUsd: record.monthlyUsd,
+    storageMonthlyUsd: record.storageMonthlyUsd ?? 0,
+    networkMonthlyUsd: record.networkMonthlyUsd ?? 0,
+    operationalScore: record.operationalScore,
+    confidence: record.confidence,
+    profile: {
+      preset: `cloud-${record.id}`,
+      os: 'Linux',
+      gpuMaker: record.gpuMaker,
+      gpuName: record.gpuName,
+      vramGB: record.vramGB,
+      ramGB: record.ramGB,
+      cpuName: '',
+      devicePriceUsd: 0,
+      purchaseStatus: 'owned',
+    },
+  };
+}
+
 export async function loadApiOptions(): Promise<ApiOption[]> {
   const response = await fetch(`${DATASET_BASE_URL}/data/api-pricing/api-models.json`, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Dataset request failed: ${response.status}`);
@@ -107,4 +231,13 @@ export async function loadApiOptions(): Promise<ApiOption[]> {
   return records
     .filter((record) => record.confidence !== 'deprecated')
     .map(mapApiPricingRecord);
+}
+
+export async function loadCloudRentalOptions(): Promise<CloudRentalOption[]> {
+  const response = await fetch(`${DATASET_BASE_URL}/data/cloud-compute/instances.json`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Dataset request failed: ${response.status}`);
+  const records = await response.json() as CloudComputeRecord[];
+  return records
+    .filter((record) => record.confidence !== 'deprecated')
+    .map(mapCloudComputeRecord);
 }

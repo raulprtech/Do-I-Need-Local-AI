@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Cloud, Cpu, Equal, Trophy, XCircle } from 'lucide-react';
+import { CheckCircle2, Cloud, Cpu, Equal, Server, Trophy, XCircle } from 'lucide-react';
 import { evaluateSystem } from '../lib/calculator';
 import { MODEL_CATALOG } from '../lib/modelCatalog';
 import { HardwareProfile, UsageProfile } from '../lib/types';
 import { useLanguage } from '../lib/i18n';
-import { ApiOption, FALLBACK_API_OPTIONS, HARDWARE_OPTIONS, HardwareOption, loadApiOptions } from '../lib/infraDataset';
+import { ApiOption, CloudRentalOption, CLOUD_RENTAL_OPTIONS, FALLBACK_API_OPTIONS, HARDWARE_OPTIONS, HardwareOption, loadApiOptions, loadCloudRentalOptions } from '../lib/infraDataset';
 
 interface Props {
   hardware: HardwareProfile;
   usage: UsageProfile;
 }
 
-type PlanKind = 'api' | 'hardware';
+type PlanKind = 'api' | 'hardware' | 'cloud-rental';
 type SortKey = 'name' | 'winner' | 'cost' | 'fit';
 
-type PlanOption = ApiOption | HardwareOption;
+type PlanOption = ApiOption | HardwareOption | CloudRentalOption;
 
 interface CompareScenario {
   id: string;
@@ -108,7 +108,15 @@ function formatMoney(usd: number, usage: UsageProfile, digits = 0) {
 }
 
 function planIcon(kind: PlanKind) {
-  return kind === 'api' ? <Cloud className="h-4 w-4" /> : <Cpu className="h-4 w-4" />;
+  if (kind === 'api') return <Cloud className="h-4 w-4" />;
+  if (kind === 'cloud-rental') return <Server className="h-4 w-4" />;
+  return <Cpu className="h-4 w-4" />;
+}
+
+function planKindLabel(kind: PlanKind) {
+  if (kind === 'api') return 'API';
+  if (kind === 'cloud-rental') return 'Cloud';
+  return 'HW';
 }
 
 function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: UsageProfile, t: (key: string) => string): PlanResult {
@@ -125,6 +133,26 @@ function evaluatePlan(plan: PlanOption, scenario: CompareScenario, baseUsage: Us
       score: plan.quality - monthlyUsd * 0.2,
       label: formatMoney(monthlyUsd, scenarioUsage, 2),
       sublabel: `$${plan.inputUsdPerMillion}/$${plan.outputUsdPerMillion} per 1M`,
+    };
+  }
+
+  if (plan.kind === 'cloud-rental') {
+    const diagnosis = evaluateSystem(plan.profile, scenarioUsage, t);
+    const model = diagnosis.recommendedModels.find((entry) => entry.name === scenario.modelName)
+      ?? diagnosis.recommendedModels.find((entry) => entry.canRun)
+      ?? diagnosis.recommendedModels[0];
+    const activeHoursMonthly = scenarioUsage.hoursPerDay * 30;
+    const computeUsd = plan.monthlyUsd ?? (plan.hourlyUsd * activeHoursMonthly);
+    const monthlyUsd = computeUsd + plan.storageMonthlyUsd + plan.networkMonthlyUsd;
+    const speedScore = model?.speed === 'fast' ? 90 : model?.speed === 'acceptable' ? 70 : model?.canRun ? 52 : 0;
+    const opsPenalty = Math.max(0, 100 - plan.operationalScore) * 0.08;
+
+    return {
+      canRun: Boolean(model?.canRun),
+      monthlyUsd,
+      score: speedScore - monthlyUsd * 0.16 - opsPenalty,
+      label: model?.canRun ? formatMoney(monthlyUsd, scenarioUsage, 2) : t('compare.noRun'),
+      sublabel: model?.canRun ? `${model.speed} - ${plan.profile.vramGB}GB VRAM - ${plan.providerName}` : `${plan.profile.vramGB}GB VRAM / ${plan.profile.ramGB}GB RAM`,
     };
   }
 
@@ -162,21 +190,28 @@ function resultBadge(result: PlanResult, t: (key: string) => string) {
 export function ComparisonPage({ hardware, usage }: Props) {
   const { t } = useLanguage();
   const [apiOptions, setApiOptions] = useState<ApiOption[]>(FALLBACK_API_OPTIONS);
+  const [cloudOptions, setCloudOptions] = useState<CloudRentalOption[]>(CLOUD_RENTAL_OPTIONS);
   const [datasetSource, setDatasetSource] = useState<'remote' | 'fallback'>('fallback');
 
   useEffect(() => {
     let cancelled = false;
 
-    loadApiOptions()
-      .then((options) => {
-        if (!cancelled && options.length > 0) {
-          setApiOptions(options);
+    Promise.allSettled([loadApiOptions(), loadCloudRentalOptions()])
+      .then(([apiResult, cloudResult]) => {
+        if (cancelled) return;
+        if (apiResult.status === 'fulfilled' && apiResult.value.length > 0) {
+          setApiOptions(apiResult.value);
+          setDatasetSource('remote');
+        }
+        if (cloudResult.status === 'fulfilled' && cloudResult.value.length > 0) {
+          setCloudOptions(cloudResult.value);
           setDatasetSource('remote');
         }
       })
       .catch(() => {
         if (!cancelled) {
           setApiOptions(FALLBACK_API_OPTIONS);
+          setCloudOptions(CLOUD_RENTAL_OPTIONS);
           setDatasetSource('fallback');
         }
       });
@@ -193,7 +228,7 @@ export function ComparisonPage({ hardware, usage }: Props) {
     detail: `${hardware.vramGB}GB VRAM / ${hardware.ramGB}GB RAM`,
     profile: hardware,
   };
-  const planOptions = useMemo<PlanOption[]>(() => [currentHardware, ...HARDWARE_OPTIONS, ...apiOptions], [apiOptions, hardware]);
+  const planOptions = useMemo<PlanOption[]>(() => [currentHardware, ...HARDWARE_OPTIONS, ...cloudOptions, ...apiOptions], [apiOptions, cloudOptions, hardware]);
   const [planAId, setPlanAId] = useState('current');
   const [planBId, setPlanBId] = useState('openai-mini');
   const [sortKey, setSortKey] = useState<SortKey>('winner');
@@ -240,7 +275,7 @@ export function ComparisonPage({ hardware, usage }: Props) {
         <div className="panel-card">
           <label className="micro-label mb-2">Plan A</label>
           <select className="control-field" value={planAId} onChange={(event) => setPlanAId(event.target.value)}>
-            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{plan.kind === 'api' ? 'API' : 'HW'} - {plan.name}</option>)}
+            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{planKindLabel(plan.kind)} - {plan.name}</option>)}
           </select>
           <div className="mt-5 flex items-center justify-between gap-4">
             <div>
@@ -263,7 +298,7 @@ export function ComparisonPage({ hardware, usage }: Props) {
         <div className="panel-card">
           <label className="micro-label mb-2">Plan B</label>
           <select className="control-field" value={planBId} onChange={(event) => setPlanBId(event.target.value)}>
-            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{plan.kind === 'api' ? 'API' : 'HW'} - {plan.name}</option>)}
+            {planOptions.map((plan) => <option key={plan.id} value={plan.id}>{planKindLabel(plan.kind)} - {plan.name}</option>)}
           </select>
           <div className="mt-5 flex items-center justify-between gap-4">
             <div>
