@@ -17,6 +17,7 @@ export interface HardwareDetectionDiagnostic {
     cleanLabel: string;
     maker: GPUMaker;
     integrated: boolean;
+    dedicatedSignal: boolean;
     matchedSpec: string | null;
     score: number;
   }>;
@@ -319,10 +320,30 @@ function isIntegratedGpu(label: string, maker: GPUMaker): boolean {
     || value.includes('0x1638');
 }
 
+function hasDedicatedAmdModelSignal(label: string): boolean {
+  const value = label.toLowerCase();
+  return /\bradeon\s+rx\b/i.test(label)
+    || /\brx\s+\d{3,4}/i.test(label)
+    || value.includes('radeon pro')
+    || value.includes('radeon vii')
+    || Boolean(findGpuSpec(label));
+}
+
+function isGenericGpuVendorLabel(label: string): boolean {
+  const value = label.toLowerCase().trim();
+  return value === 'amd'
+    || value === 'google inc. (amd)'
+    || value === 'google inc. (nvidia)'
+    || value === 'google inc. (intel)'
+    || /^amd\s+gcn-\d+/.test(value);
+}
+
 function isDedicatedGpuSignal(label: string, os: OS): boolean {
   const maker = inferGpuMaker(label, os);
-  if (isIntegratedGpu(label, maker)) return false;
-  return maker === 'NVIDIA' || maker === 'AMD' || Boolean(findGpuSpec(label));
+  if (isIntegratedGpu(label, maker) || isGenericGpuVendorLabel(label)) return false;
+  if (maker === 'NVIDIA') return true;
+  if (maker === 'AMD') return hasDedicatedAmdModelSignal(label);
+  return Boolean(findGpuSpec(label));
 }
 
 function candidateScore(candidate: GpuCandidate, os: OS): number {
@@ -332,13 +353,14 @@ function candidateScore(candidate: GpuCandidate, os: OS): number {
   let score = 0;
 
   if (candidate.source === 'webgl-primary') score += 50;
-  if (candidate.source === 'webgl-vendor') score += 35;
+  if (candidate.source === 'webgl-vendor') score -= 20;
   if (candidate.source === 'webgl-high' || candidate.source === 'webgl2-high' || candidate.source === 'webgpu-high') score += 25;
   if (matched) score += 100;
-  if (maker === 'NVIDIA' || maker === 'AMD') score += isIntegratedGpu(label, maker) ? 0 : 65;
+  if (isDedicatedGpuSignal(label, os)) score += 65;
   if (maker === 'Apple') score += 30;
   if (maker === 'Intel') score -= 30;
   if (isIntegratedGpu(label, maker)) score -= 35;
+  if (isGenericGpuVendorLabel(candidate.label)) score -= 45;
 
   return score;
 }
@@ -420,6 +442,7 @@ export async function getHardwareDetectionDiagnostics(): Promise<HardwareDetecti
         cleanLabel,
         maker,
         integrated: isIntegratedGpu(candidate.label, maker),
+        dedicatedSignal: isDedicatedGpuSignal(candidate.label, os),
         matchedSpec: matched?.name ?? null,
         score: candidateScore(candidate, os),
       };
