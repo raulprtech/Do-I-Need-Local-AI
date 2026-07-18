@@ -1,7 +1,7 @@
 import React from 'react';
 import { HardwareProfile, UsageProfile, GPUMaker, UsageGoal, UsageFrequency, CloudModelId, CloudPlanId, UsageModelSelection } from '../lib/types';
 import { CLOUD_MODEL_PROFILES, CLOUD_PLAN_PROFILES, HARDWARE_PRESETS } from '../lib/calculator';
-import { detectHardwareProfile } from '../lib/hardwareDetection';
+import { detectHardwareProfile, getHardwareDetectionDiagnostics } from '../lib/hardwareDetection';
 import { CURRENCY_OPTIONS, detectCountryDefaults } from '../lib/locale';
 import { useLanguage } from '../lib/i18n';
 import { ApiUsageImportPanel } from './ApiUsagePage';
@@ -20,6 +20,7 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
   const [isDetectingGpu, setIsDetectingGpu] = React.useState(false);
   const [electricityDetectionStatus, setElectricityDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
   const [gpuDetectionStatus, setGpuDetectionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
+  const [gpuDiagnosticStatus, setGpuDiagnosticStatus] = React.useState<'idle' | 'copied' | 'error'>('idle');
   const [isModelMixOpen, setIsModelMixOpen] = React.useState(false);
   const [isAdvancedOpen, setIsAdvancedOpen] = React.useState(false);
 
@@ -41,6 +42,18 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
       setElectricityDetectionStatus('error');
     } finally {
       setIsDetectingElectricity(false);
+    }
+  };
+
+  const copyGpuDiagnostics = async () => {
+    setGpuDiagnosticStatus('idle');
+
+    try {
+      const diagnostics = await getHardwareDetectionDiagnostics();
+      await navigator.clipboard?.writeText(JSON.stringify(diagnostics, null, 2));
+      setGpuDiagnosticStatus('copied');
+    } catch {
+      setGpuDiagnosticStatus('error');
     }
   };
 
@@ -117,6 +130,20 @@ export function InputForms({ hardware, setHardware, usage, setUsage }: Props) {
               </span>
             )}
             <p className="mt-2 text-xs leading-5 text-[#8ba7c7]">{hardware.gpuName}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={copyGpuDiagnostics}
+                className="rounded-full border border-[#7dd3fc]/20 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-[#8ba7c7] transition hover:border-[#7dd3fc]/60 hover:text-[#dbeafe]"
+              >
+                {t('input.hardware.copyGpuDiagnostics')}
+              </button>
+              {gpuDiagnosticStatus !== 'idle' && (
+                <span className={`text-[10px] ${gpuDiagnosticStatus === 'copied' ? 'text-[#7dd3fc]' : 'text-[#f0d48a]'}`}>
+                  {gpuDiagnosticStatus === 'copied' ? t('input.hardware.gpuDiagnosticsCopied') : t('input.hardware.gpuDiagnosticsError')}
+                </span>
+              )}
+            </div>
           </div>
 
           <div>

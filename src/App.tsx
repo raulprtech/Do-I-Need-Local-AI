@@ -279,6 +279,18 @@ export default function App() {
           {view === 'compare' && <ComparisonPage hardware={hardware} usage={usage} modelCatalog={modelCatalog} />}
           {view === 'about' && <AboutPage assumptions={diagnosis.assumptions} />}
         </main>
+
+        <footer className="border-t border-[#7dd3fc]/10 px-5 py-5 text-center text-xs text-[#8ba7c7] md:px-10">
+          <span>Creado por </span>
+          <a
+            href="https://raulpacheco.dev"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-[#7dd3fc] transition hover:text-[#dbeafe]"
+          >
+            Raul Pacheco
+          </a>
+        </footer>
       </div>
     </div>
   );

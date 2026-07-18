@@ -4,6 +4,24 @@ interface GpuSpec {
   vramGB: number;
 }
 
+export interface HardwareDetectionDiagnostic {
+  os: OS;
+  userAgent: string;
+  platform: string;
+  deviceMemoryGB: number | null;
+  webglPrimary: WebGlInfo;
+  webgpu: WebGpuInfo[];
+  candidates: Array<{
+    source: GpuCandidate['source'];
+    label: string;
+    cleanLabel: string;
+    maker: GPUMaker;
+    integrated: boolean;
+    matchedSpec: string | null;
+    score: number;
+  }>;
+}
+
 interface WebGpuInfo {
   label: string | null;
   vendor: string | null;
@@ -334,17 +352,20 @@ function isLowConfidenceIntegratedOnly(candidates: GpuCandidate[], maker: GPUMak
   return candidates.length > 0 && !hasDedicatedSignal(candidates, os);
 }
 
-function pickBestCandidate(candidates: GpuCandidate[], os: OS): GpuCandidate | null {
-  const unique = candidates.filter((candidate, index, all) => (
-    candidate.label.trim()
-    && all.findIndex((item) => item.label.trim() === candidate.label.trim()) === index
-  ));
-
-  return unique.sort((a, b) => candidateScore(b, os) - candidateScore(a, os))[0] ?? null;
+function buildGpuCandidates(primaryWebGl: WebGlInfo, webGpuHigh: WebGpuInfo, webGpuDefault: WebGpuInfo): GpuCandidate[] {
+  return [
+    { label: primaryWebGl.renderer ?? '', source: 'webgl-primary' as const },
+    { label: primaryWebGl.vendor ?? '', source: 'webgl-vendor' as const },
+    { label: webGpuHigh.label ?? '', source: 'webgpu-high' as const },
+    { label: getWebGlRenderer('high-performance', 'webgl2') ?? '', source: 'webgl2-high' as const },
+    { label: getWebGlRenderer('high-performance', 'webgl') ?? '', source: 'webgl-high' as const },
+    { label: getWebGlRenderer('default', 'webgl2') ?? '', source: 'webgl2-default' as const },
+    { label: getWebGlRenderer('default', 'webgl') ?? '', source: 'webgl-default' as const },
+    { label: webGpuDefault.label ?? '', source: 'webgpu-default' as const },
+  ].filter((candidate) => candidate.label.trim());
 }
 
-export async function detectHardwareProfile(current: HardwareProfile): Promise<Partial<HardwareProfile>> {
-  const os = detectOs();
+async function collectGpuSignals() {
   const emptyWebGpu = (powerPreference: 'high-performance' | 'default'): WebGpuInfo => ({
     label: null,
     vendor: null,
@@ -359,16 +380,56 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
     getWebGpuInfo('high-performance').catch(() => emptyWebGpu('high-performance')),
     getWebGpuInfo('default').catch(() => emptyWebGpu('default')),
   ]);
-  const candidates: GpuCandidate[] = [
-    { label: primaryWebGl.renderer ?? '', source: 'webgl-primary' as const },
-    { label: primaryWebGl.vendor ?? '', source: 'webgl-vendor' as const },
-    { label: webGpuHigh.label ?? '', source: 'webgpu-high' as const },
-    { label: getWebGlRenderer('high-performance', 'webgl2') ?? '', source: 'webgl2-high' as const },
-    { label: getWebGlRenderer('high-performance', 'webgl') ?? '', source: 'webgl-high' as const },
-    { label: getWebGlRenderer('default', 'webgl2') ?? '', source: 'webgl2-default' as const },
-    { label: getWebGlRenderer('default', 'webgl') ?? '', source: 'webgl-default' as const },
-    { label: webGpuDefault.label ?? '', source: 'webgpu-default' as const },
-  ].filter((candidate) => candidate.label.trim());
+
+  return {
+    primaryWebGl,
+    webGpuHigh,
+    webGpuDefault,
+    candidates: buildGpuCandidates(primaryWebGl, webGpuHigh, webGpuDefault),
+  };
+}
+
+function pickBestCandidate(candidates: GpuCandidate[], os: OS): GpuCandidate | null {
+  const unique = candidates.filter((candidate, index, all) => (
+    candidate.label.trim()
+    && all.findIndex((item) => item.label.trim() === candidate.label.trim()) === index
+  ));
+
+  return unique.sort((a, b) => candidateScore(b, os) - candidateScore(a, os))[0] ?? null;
+}
+
+export async function getHardwareDetectionDiagnostics(): Promise<HardwareDetectionDiagnostic> {
+  const os = detectOs();
+  const { primaryWebGl, webGpuHigh, webGpuDefault, candidates } = await collectGpuSignals();
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+
+  return {
+    os,
+    userAgent: navigator.userAgent,
+    platform: `${nav.userAgentData?.platform ?? navigator.platform ?? ''}`,
+    deviceMemoryGB: getDeviceMemoryGB(),
+    webglPrimary: primaryWebGl,
+    webgpu: [webGpuHigh, webGpuDefault],
+    candidates: candidates.map((candidate) => {
+      const cleanLabel = cleanRendererLabel(candidate.label);
+      const maker = inferGpuMaker(`${candidate.label} ${cleanLabel}`, os);
+      const matched = findGpuSpec(candidate.label);
+      return {
+        source: candidate.source,
+        label: candidate.label,
+        cleanLabel,
+        maker,
+        integrated: isIntegratedGpu(candidate.label, maker),
+        matchedSpec: matched?.name ?? null,
+        score: candidateScore(candidate, os),
+      };
+    }).sort((a, b) => b.score - a.score),
+  };
+}
+
+export async function detectHardwareProfile(current: HardwareProfile): Promise<Partial<HardwareProfile>> {
+  const os = detectOs();
+  const { primaryWebGl, webGpuHigh, webGpuDefault, candidates } = await collectGpuSignals();
   const bestCandidate = pickBestCandidate(candidates, os);
   const rawLabel = bestCandidate?.label ?? current.gpuName;
   const cleanLabel = cleanRendererLabel(rawLabel);
