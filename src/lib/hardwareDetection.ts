@@ -374,6 +374,12 @@ function isLowConfidenceIntegratedOnly(candidates: GpuCandidate[], maker: GPUMak
   return candidates.length > 0 && !hasDedicatedSignal(candidates, os);
 }
 
+function shouldRejectIntegratedOnlyDetection(candidates: GpuCandidate[], combinedLabel: string, maker: GPUMaker, os: OS): boolean {
+  return os === 'Windows'
+    && !hasDedicatedSignal(candidates, os)
+    && (isIntegratedGpu(combinedLabel, maker) || isGenericGpuVendorLabel(combinedLabel));
+}
+
 function buildGpuCandidates(primaryWebGl: WebGlInfo, webGpuHigh: WebGpuInfo, webGpuDefault: WebGpuInfo): GpuCandidate[] {
   return [
     { label: primaryWebGl.renderer ?? '', source: 'webgl-primary' as const },
@@ -461,6 +467,11 @@ export async function detectHardwareProfile(current: HardwareProfile): Promise<P
   const matched = findGpuSpec(combinedLabel);
   const gpuName = matched?.name ? matched.name.replace(/\bTI\b/g, 'Ti') : fallbackGpuName(maker, cleanLabel || rawLabel);
   const ramGB = estimateRamGB(os, combinedLabel, current);
+
+  if (shouldRejectIntegratedOnlyDetection(candidates, combinedLabel, maker, os)) {
+    throw new Error('Only integrated GPU signals were exposed by the browser.');
+  }
+
   const vramGB = estimateVramGB(combinedLabel, maker, os, webGpuHigh.maxBufferGB ? webGpuHigh : webGpuDefault, current);
 
   if ((isIntegratedGpu(combinedLabel, maker) || isLowConfidenceIntegratedOnly(candidates, maker, os)) && current.gpuMaker !== 'None' && current.gpuMaker !== 'Intel' && current.vramGB > 0) {
